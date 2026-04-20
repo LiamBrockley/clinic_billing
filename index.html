@@ -346,7 +346,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.8</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.9</div>
   </div>
 </div>
 
@@ -989,8 +989,7 @@ Return ONLY valid JSON with exactly these fields:
       referred_by: parsed.referred_by || '',
       follow_up: parsed.follow_up || '',
       notes: parsed.notes || '',
-      claimed: false,
-      claim_status: '',
+      claim_status: 'Not submitted',
       custom: parsed.custom || {}
     };
 
@@ -1317,17 +1316,17 @@ function setSubmitLoading(on) {
 //  TABLE RENDERING
 // ════════════════════════════════════════
 function getColumns() {
-  const base = ['#','Patient','Date','Time','Dur (mins)','Type','Reason','PHN','Billing code','Fee','Diagnosis','Follow-up','Claimed','Visits'];
+  const base = ['Date','Time','Dur (mins)','Patient','PHN','DOB','Type','Reason','Billing code','Claim status','Visits'];
   return base.concat(state.settings.custom_fields);
 }
 
 // Maps column label to the field key used for sorting
 const COL_KEYS = {
-  'Patient': 'patient_name', 'Date': 'date', 'Time': 'time',
-  'Dur (mins)': 'duration', 'Type': 'appointment_type', 'Reason': 'reason',
-  'PHN': 'phn', 'Billing code': 'billing_code', 'Fee': 'fee',
-  'Diagnosis': 'diagnosis_code', 'Follow-up': 'follow_up',
-  'Claimed': 'claimed', 'Visits': 'total_visits'
+  'Date': 'date', 'Time': 'time', 'Dur (mins)': 'duration',
+  'Patient': 'patient_name', 'PHN': 'phn', 'DOB': 'dob',
+  'Type': 'appointment_type', 'Reason': 'reason',
+  'Billing code': 'billing_code', 'Claim status': 'claim_status',
+  'Visits': 'total_visits'
 };
 
 function sortByCol(colLabel) {
@@ -1389,20 +1388,18 @@ function renderTable() {
 
   body.innerHTML = rows.map(({ r, i }) => {
     const customCells = (state.settings.custom_fields || []).map(cf => `<td class="td-muted">${esc(r.custom ? r.custom[cf] : '')}</td>`).join('');
+    const claimStatus = r.claim_status || 'Not submitted';
     return `<tr onclick="openEdit(${i})">
-      <td class="td-muted">${i + 1}</td>
-      <td class="td-name">${esc(r.patient_name)}</td>
       <td>${esc(r.date)}</td>
       <td class="td-muted">${esc(r.time)}</td>
       <td>${esc(r.duration)}</td>
+      <td class="td-name">${esc(r.patient_name)}</td>
+      <td class="td-muted">${esc(r.phn)}</td>
+      <td class="td-muted">${esc(r.dob)}</td>
       <td>${esc(r.appointment_type)}${r.ltc_facility ? '<br><span style="font-size:10px;color:var(--text-light)">'+esc(r.ltc_facility)+'</span>' : ''}</td>
       <td>${esc(r.reason)}</td>
-      <td class="td-muted">${esc(r.phn)}</td>
       <td>${esc(r.billing_code)}</td>
-      <td>${r.fee ? '$'+esc(r.fee) : dash()}</td>
-      <td class="td-muted">${esc(r.diagnosis_code)}</td>
-      <td class="td-muted">${esc(r.follow_up)}</td>
-      <td style="text-align:center">${r.claimed ? '<span class="claimed-check">✓</span>' : dash()}</td>
+      <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${claimStatus==='Accepted'?'var(--sage-light)':claimStatus==='Rejected'?'var(--danger-light)':claimStatus==='Pending'?'var(--warn-light)':'var(--border-light)'};color:${claimStatus==='Accepted'?'var(--sage-dark)':claimStatus==='Rejected'?'var(--danger)':claimStatus==='Pending'?'var(--warn)':'var(--text-light)'}">${claimStatus}</span></td>
       <td style="text-align:center"><span class="visits-pill">${r.total_visits || 1}</span></td>
       ${customCells}
     </tr>`;
@@ -1443,7 +1440,7 @@ function openEdit(index) {
     { key: 'diagnosis_code', label: 'Diagnosis code', type: 'text' },
     { key: 'referred_by', label: 'Referred by', type: 'text' },
     { key: 'follow_up', label: 'Follow-up', type: 'text' },
-    { key: 'claim_status', label: 'Claim status', type: 'select', options: ['','Pending','Accepted','Rejected'] },
+    { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
     { key: 'notes', label: 'Notes', type: 'textarea', full: true },
   ];
 
@@ -1481,11 +1478,7 @@ function openEdit(index) {
     grid.appendChild(div);
   });
 
-  // Claimed checkbox
-  const claimedDiv = document.createElement('div');
-  claimedDiv.className = 'modal-field';
-  claimedDiv.innerHTML = `<label>Claimed</label><label style="display:flex;align-items:center;gap:6px;margin-top:4px"><input type="checkbox" id="editClaimed" ${r.claimed ? 'checked' : ''} /> Yes, submitted to MSP</label>`;
-  grid.appendChild(claimedDiv);
+
 
 
 
@@ -1500,8 +1493,6 @@ async function saveEdit() {
     if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
     else if (key) r[key] = el.value;
   });
-  const claimedEl = document.getElementById('editClaimed');
-  if (claimedEl) r.claimed = claimedEl.checked;
 
   // Update patient record
   const nameKey = (r.patient_name || '').toLowerCase().trim();
@@ -1873,7 +1864,7 @@ Proceed?`;
       referred_by:      row['Referred by']      || '',
       follow_up:        row['Follow-up']        || '',
       claimed:          (row['Claimed'] || '').toLowerCase() === 'yes',
-      claim_status:     row['Claim status']     || '',
+      claim_status:     row['Claim status']     || 'Not submitted',
       notes:            row['Notes']            || '',
       total_visits:     parseInt(row['Total visits']) || 1,
       custom:           {}
