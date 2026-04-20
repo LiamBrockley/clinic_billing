@@ -766,18 +766,26 @@ function updateTopbarDate() {
 //  VOICE
 // ════════════════════════════════════════
 async function initMic() {
-  // Prime AudioContext on unlock — required in some browsers before SpeechRecognition works
+  // Warm up SpeechRecognition engine silently on login
+  // so it's ready on first real use
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.resume();
-    ctx.close();
-  } catch(e) {}
-  // Also pre-request mic permission
-  try {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const warmup = new SR();
+    warmup.lang = 'en-CA';
+    warmup.continuous = false;
+    warmup.interimResults = false;
+    warmup.onresult = () => {};
+    warmup.onerror = () => {};
+    warmup.onend = () => {};
+    // Request mic permission explicitly
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
+    // Now start+stop the warmup recogniser — this primes Chrome's speech engine
+    warmup.start();
+    setTimeout(() => { try { warmup.stop(); } catch(e){} }, 300);
   } catch(e) {
-    console.warn('Mic permission not granted:', e);
+    console.warn('Mic warmup failed:', e);
   }
 }
 
@@ -828,7 +836,10 @@ function toggleMic() {
     console.warn('Speech error:', e.error);
     stopMic();
   };
-  recognition.start();
+  // Small delay on start ensures any background warmup has fully released the mic
+  setTimeout(() => {
+    try { recognition.start(); } catch(e) { console.warn('Recognition start failed:', e); stopMic(); }
+  }, 150);
 }
 
 function stopMic() {
