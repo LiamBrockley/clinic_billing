@@ -43,7 +43,7 @@
     display: flex; flex-direction: column; gap: 1.25rem;
   }
   .lock-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--sage-dark); }
-  .lock-subtitle { font-size: 13px; color: var(--text-light); margin-top: -0.75rem; }
+  .lock-subtitle { font-size: 13px; color: var(--text-light); margin-top: 0.25rem; }
   .lock-message { font-size: 13px; color: var(--warn); background: var(--warn-light); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; display: none; }
   .lock-card input[type=password] {
     width: 100%; padding: 0.65rem 0.9rem; border: 1px solid var(--border);
@@ -375,7 +375,7 @@
         <div class="note-wrap">
           <textarea id="noteInput" placeholder="Dictate or type — e.g. Gene Simmons, 20 min phone, foot fungus" rows="3"></textarea>
           <div class="note-actions">
-            <button class="mic-btn btn-icon" id="micBtn" onclick="toggleMic()" title="Toggle microphone">🎙</button>
+            <button class="mic-btn btn-icon" id="micBtn" onclick="toggleMic()" title="Toggle microphone"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button>
             <span class="voice-status" id="voiceStatus">Tap mic to dictate</span>
             <button class="btn-primary submit-btn" id="submitBtn" onclick="submitNote()">
               <span id="submitLabel">→</span>
@@ -813,7 +813,7 @@ function toggleMic() {
   recognition.onstart = () => {
     isRecording = true;
     document.getElementById('micBtn').classList.add('recording');
-    document.getElementById('micBtn').textContent = '⏹';
+    document.getElementById('micBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
     document.getElementById('voiceStatus').textContent = 'Listening — tap ⏹ to stop & log';
     document.getElementById('voiceStatus').classList.add('active');
   };
@@ -835,7 +835,7 @@ function stopMic() {
   isRecording = false;
   if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
   document.getElementById('micBtn').classList.remove('recording');
-  document.getElementById('micBtn').textContent = '🎙';
+  document.getElementById('micBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>';
   document.getElementById('voiceStatus').textContent = 'Tap mic to dictate';
   document.getElementById('voiceStatus').classList.remove('active');
 }
@@ -994,6 +994,7 @@ function showNextFollowup() {
 function answerFollowup() {
   const answer = document.getElementById('followupInput').value.trim();
   if (!answer) return;
+  document.getElementById('followupInput').value = '';
   const { field } = followupQueue.shift();
   applyFollowupAnswer(field, answer);
   if (followupQueue.length > 0) {
@@ -1054,7 +1055,7 @@ function showPreview() {
     { key: 'patient_name', label: 'Patient name', type: 'text', full: false },
     { key: 'date', label: 'Date', type: 'text', full: false },
     { key: 'time', label: 'Time', type: 'text', full: false },
-    { key: 'duration', label: 'Duration', type: 'text', full: false },
+    { key: 'duration', label: 'Duration (mins)', type: 'text', full: false },
     { key: 'appointment_type', label: 'Appointment type', type: 'select', options: state.settings.appt_types, full: false },
     { key: 'ltc_facility', label: 'LTC facility', type: 'select', options: state.settings.ltc_facilities, full: false, hidden: !ltcVisible },
     { key: 'reason', label: 'Reason for visit', type: 'text', full: false },
