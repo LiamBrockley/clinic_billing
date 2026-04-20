@@ -766,7 +766,13 @@ function updateTopbarDate() {
 //  VOICE
 // ════════════════════════════════════════
 async function initMic() {
-  // Pre-request mic permission so voice works immediately on first tap
+  // Prime AudioContext on unlock — required in some browsers before SpeechRecognition works
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await ctx.resume();
+    ctx.close();
+  } catch(e) {}
+  // Also pre-request mic permission
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
@@ -837,6 +843,29 @@ function stopMic() {
 // ════════════════════════════════════════
 //  NOTE SUBMISSION & AI PARSING
 // ════════════════════════════════════════
+function parseDurationToMinutes(raw) {
+  if (!raw && raw !== 0) return '';
+  const s = String(raw).toLowerCase().trim();
+  // Already a plain number
+  if (/^\d+$/.test(s)) return s;
+  let minutes = 0;
+  // Match patterns like "2 hours", "1.5 hours", "half an hour", "45 minutes", "1 hour 20 minutes" etc.
+  const hourMatch = s.match(/(\d+\.?\d*)\s*(hour|hr)/);
+  const minMatch  = s.match(/(\d+\.?\d*)\s*(min)/);
+  const halfHour  = /half\s+an?\s+hour/.test(s);
+  const quarterHr = /quarter\s+(of\s+an?\s+)?hour/.test(s);
+  if (halfHour) minutes += 30;
+  else if (quarterHr) minutes += 15;
+  else if (hourMatch) minutes += Math.round(parseFloat(hourMatch[1]) * 60);
+  if (minMatch) minutes += Math.round(parseFloat(minMatch[1]));
+  // Fallback: strip non-digits and see if we have a number
+  if (minutes === 0) {
+    const nums = s.replace(/[^\d]/g, '');
+    if (nums) minutes = parseInt(nums);
+  }
+  return minutes > 0 ? String(minutes) : '';
+}
+
 async function submitNote() {
   const note = document.getElementById('noteInput').value.trim();
   if (!note) return;
@@ -884,7 +913,7 @@ Return ONLY valid JSON with exactly these fields:
       patient_name: parsed.patient_name || '',
       date: dateStr,
       time: timeStr,
-      duration: parsed.duration || '',
+      duration: parseDurationToMinutes(parsed.duration),
       appointment_type: parsed.appointment_type || '',
       ltc_facility: parsed.ltc_facility || '',
       reason: parsed.reason || '',
@@ -1003,7 +1032,7 @@ function cleanReason(str) {
 function applyFollowupAnswer(field, answer) {
   if (field === 'PHN') pendingEntry.phn = wordsToDigits(answer).replace(/\D/g, '');
   else if (field === 'patient_name') pendingEntry.patient_name = answer;
-  else if (field === 'duration') pendingEntry.duration = answer;
+  else if (field === 'duration') pendingEntry.duration = parseDurationToMinutes(answer);
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
   else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
 }
@@ -1154,7 +1183,7 @@ function setSubmitLoading(on) {
   const btn = document.getElementById('submitBtn');
   const label = document.getElementById('submitLabel');
   btn.disabled = on;
-  label.innerHTML = on ? '<span class="spinner"></span>' : 'Log it';
+  label.innerHTML = on ? '<span class="spinner"></span>' : '→';
 }
 
 // ════════════════════════════════════════
