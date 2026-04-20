@@ -198,8 +198,10 @@
     padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 500;
     text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light);
     background: var(--cream); border-bottom: 1px solid var(--border);
-    white-space: nowrap; position: sticky; top: 0;
+    white-space: nowrap; position: sticky; top: 0; cursor: pointer; user-select: none;
   }
+  thead th:hover { color: var(--text-mid); }
+  thead th.sort-active { color: var(--sage-dark); }
   tbody tr { border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.1s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--sage-light); }
@@ -344,7 +346,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.8</div>
   </div>
 </div>
 
@@ -427,7 +429,7 @@
       <div class="tab-content active" id="tab-log">
         <div class="log-header">
           <h3>Appointment Log <span id="rowCountBadge" style="font-size:11px;background:var(--sage-light);color:var(--sage-dark);padding:1px 7px;border-radius:10px;margin-left:4px">0</span></h3>
-
+          <input type="text" id="logSearch" placeholder="Search…" oninput="renderTable()" style="font-family:inherit;font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--cream);color:var(--text);outline:none;width:160px" />
         </div>
         <div class="export-reminder" id="exportReminder">
           <span>⚠</span>
@@ -577,6 +579,8 @@ let pendingEntry = null;
 let followupQueue = [];
 let followupAnswers = {};
 let editingIndex = null;
+let sortCol = null;   // column key currently sorted
+let sortDir = 1;      // 1 = asc, -1 = desc
 let inactivityTimer = null;
 let recognition = null;
 let isRecording = false;
@@ -1317,21 +1321,76 @@ function getColumns() {
   return base.concat(state.settings.custom_fields);
 }
 
+// Maps column label to the field key used for sorting
+const COL_KEYS = {
+  'Patient': 'patient_name', 'Date': 'date', 'Time': 'time',
+  'Dur (mins)': 'duration', 'Type': 'appointment_type', 'Reason': 'reason',
+  'PHN': 'phn', 'Billing code': 'billing_code', 'Fee': 'fee',
+  'Diagnosis': 'diagnosis_code', 'Follow-up': 'follow_up',
+  'Claimed': 'claimed', 'Visits': 'total_visits'
+};
+
+function sortByCol(colLabel) {
+  const key = COL_KEYS[colLabel];
+  if (!key) return;
+  if (sortCol === key) {
+    if (sortDir === -1) { sortCol = null; sortDir = 1; } // third click clears sort
+    else sortDir = -1;
+  } else {
+    sortCol = key; sortDir = 1;
+  }
+  renderTable();
+}
+
 function renderTable() {
   const cols = getColumns();
   const head = document.getElementById('tableHead');
-  head.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+  head.innerHTML = cols.map(c => {
+    const isActive = sortCol && COL_KEYS[c] === sortCol;
+    const arrow = isActive ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
+    const cls = isActive ? ' class="sort-active"' : '';
+    const clickable = COL_KEYS[c] ? `onclick="sortByCol('${c}')"` : '';
+    return `<th${cls} ${clickable}>${c}${arrow}</th>`;
+  }).join('');
 
   const body = document.getElementById('tableBody');
-  document.getElementById('rowCountBadge').textContent = state.log.length;
-  if (state.log.length === 0) {
-    body.innerHTML = `<tr><td colspan="${cols.length}" class="empty-log">No appointments logged yet. Dictate or type your first one above.</td></tr>`;
+
+  // Filter
+  const q = (document.getElementById('logSearch') ? document.getElementById('logSearch').value : '').toLowerCase().trim();
+  let rows = state.log.map((r, i) => ({ r, i }));
+  if (q) {
+    rows = rows.filter(({ r }) =>
+      (r.patient_name || '').toLowerCase().includes(q) ||
+      (r.reason || '').toLowerCase().includes(q) ||
+      (r.billing_code || '').toLowerCase().includes(q) ||
+      (r.appointment_type || '').toLowerCase().includes(q) ||
+      (r.phn || '').toLowerCase().includes(q) ||
+      (r.date || '').includes(q)
+    );
+  }
+
+  // Sort
+  if (sortCol) {
+    rows.sort((a, b) => {
+      let av = a.r[sortCol] || ''; let bv = b.r[sortCol] || '';
+      if (!isNaN(av) && !isNaN(bv) && av !== '' && bv !== '') {
+        return (parseFloat(av) - parseFloat(bv)) * sortDir;
+      }
+      return String(av).localeCompare(String(bv)) * sortDir;
+    });
+  }
+
+  document.getElementById('rowCountBadge').textContent = rows.length + (q ? ' of ' + state.log.length : '');
+
+  if (rows.length === 0) {
+    body.innerHTML = `<tr><td colspan="${cols.length}" class="empty-log">${q ? 'No appointments match your search.' : 'No appointments logged yet. Dictate or type your first one above.'}</td></tr>`;
     return;
   }
-  body.innerHTML = state.log.map((r, i) => {
+
+  body.innerHTML = rows.map(({ r, i }) => {
     const customCells = (state.settings.custom_fields || []).map(cf => `<td class="td-muted">${esc(r.custom ? r.custom[cf] : '')}</td>`).join('');
     return `<tr onclick="openEdit(${i})">
-      <td class="td-muted">${state.log.length - i}</td>
+      <td class="td-muted">${i + 1}</td>
       <td class="td-name">${esc(r.patient_name)}</td>
       <td>${esc(r.date)}</td>
       <td class="td-muted">${esc(r.time)}</td>
