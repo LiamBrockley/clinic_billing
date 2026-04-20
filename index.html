@@ -202,6 +202,18 @@
   }
   thead th:hover { color: var(--text-mid); }
   thead th.sort-active { color: var(--sage-dark); }
+  thead th.claim-active { color: var(--sage-dark); }
+  .claim-menu {
+    position: absolute; background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+    z-index: 200; min-width: 130px; padding: 4px 0; font-size: 12px;
+  }
+  .claim-menu-item {
+    padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    color: var(--text); text-transform: none; letter-spacing: 0; font-weight: 400;
+  }
+  .claim-menu-item:hover { background: var(--sage-light); }
+  .claim-menu-item.active { color: var(--sage-dark); font-weight: 500; }
   tbody tr { border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.1s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--sage-light); }
@@ -346,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.4</div>
   </div>
 </div>
 
@@ -581,6 +593,7 @@ let followupAnswers = {};
 let editingIndex = null;
 let sortCol = null;   // column key currently sorted
 let sortDir = 1;      // 1 = asc, -1 = desc
+let claimFilter = null; // active claim status filter
 let inactivityTimer = null;
 let recognition = null;
 let isRecording = false;
@@ -1326,9 +1339,11 @@ const COL_KEYS = {
   'Date': 'date', 'Time': 'time', 'Dur (mins)': 'duration',
   'Patient': 'patient_name', 'PHN': 'phn', 'DOB': 'dob',
   'Type': 'appointment_type', 'Reason': 'reason',
-  'Billing code': 'billing_code', 'Claim status': 'claim_status',
+  'Billing code': 'billing_code',
   'Visits': 'total_visits'
 };
+
+const CLAIM_STATUSES = ['Not submitted', 'Pending', 'Accepted', 'Rejected'];
 
 function sortByCol(colLabel) {
   const key = COL_KEYS[colLabel];
@@ -1342,10 +1357,59 @@ function sortByCol(colLabel) {
   renderTable();
 }
 
+function toggleClaimMenu(e) {
+  e.stopPropagation();
+  // Remove any existing menu
+  const existing = document.getElementById('claimMenuEl');
+  if (existing) { existing.remove(); return; }
+
+  const menu = document.createElement('div');
+  menu.id = 'claimMenuEl';
+  menu.className = 'claim-menu';
+
+  // Position under the header cell
+  const th = e.currentTarget;
+  const rect = th.getBoundingClientRect();
+  const tableRect = document.querySelector('.log-table-wrap').getBoundingClientRect();
+  menu.style.top = (rect.bottom - tableRect.top + document.querySelector('.log-table-wrap').scrollTop) + 'px';
+  menu.style.left = (rect.left - tableRect.left) + 'px';
+  menu.style.position = 'absolute';
+
+  // Clear option
+  const clearItem = document.createElement('div');
+  clearItem.className = 'claim-menu-item' + (claimFilter === null ? ' active' : '');
+  clearItem.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--border)"></span> All';
+  clearItem.onclick = (ev) => { ev.stopPropagation(); claimFilter = null; menu.remove(); renderTable(); };
+  menu.appendChild(clearItem);
+
+  CLAIM_STATUSES.forEach(status => {
+    const item = document.createElement('div');
+    item.className = 'claim-menu-item' + (claimFilter === status ? ' active' : '');
+    const dotColor = status==='Accepted'?'#27ae60':status==='Rejected'?'#e74c3c':status==='Pending'?'#e67e22':'#bdc3c7';
+    item.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotColor}"></span> ${status}`;
+    item.onclick = (ev) => { ev.stopPropagation(); claimFilter = status; menu.remove(); renderTable(); };
+    menu.appendChild(item);
+  });
+
+  document.querySelector('.log-table-wrap').style.position = 'relative';
+  document.querySelector('.log-table-wrap').appendChild(menu);
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', function handler() {
+    menu.remove(); document.removeEventListener('click', handler);
+  }), 0);
+}
+
 function renderTable() {
   const cols = getColumns();
   const head = document.getElementById('tableHead');
   head.innerHTML = cols.map(c => {
+    if (c === 'Claim status') {
+      const isActive = claimFilter !== null;
+      const cls = isActive ? ' class="claim-active"' : '';
+      const dot = isActive ? ` <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${claimFilter==='Accepted'?'#27ae60':claimFilter==='Rejected'?'#e74c3c':claimFilter==='Pending'?'#e67e22':'#bdc3c7'};vertical-align:middle"></span>` : '';
+      return `<th${cls} onclick="toggleClaimMenu(event)" style="position:relative;white-space:nowrap">${c}${dot}</th>`;
+    }
     const isActive = sortCol && COL_KEYS[c] === sortCol;
     const arrow = isActive ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
     const cls = isActive ? ' class="sort-active"' : '';
@@ -1368,6 +1432,9 @@ function renderTable() {
       (r.date || '').includes(q)
     );
   }
+  if (claimFilter !== null) {
+    rows = rows.filter(({ r }) => (r.claim_status || 'Not submitted') === claimFilter);
+  }
 
   // Sort
   if (sortCol) {
@@ -1380,7 +1447,8 @@ function renderTable() {
     });
   }
 
-  document.getElementById('rowCountBadge').textContent = rows.length + (q ? ' of ' + state.log.length : '');
+  const isFiltered = q || claimFilter !== null;
+  document.getElementById('rowCountBadge').textContent = rows.length + (isFiltered ? ' of ' + state.log.length : '');
 
   if (rows.length === 0) {
     body.innerHTML = `<tr><td colspan="${cols.length}" class="empty-log">${q ? 'No appointments match your search.' : 'No appointments logged yet. Dictate or type your first one above.'}</td></tr>`;
