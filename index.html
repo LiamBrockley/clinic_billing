@@ -346,7 +346,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.0</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.1</div>
   </div>
 </div>
 
@@ -1399,7 +1399,7 @@ function renderTable() {
       <td>${esc(r.appointment_type)}${r.ltc_facility ? '<br><span style="font-size:10px;color:var(--text-light)">'+esc(r.ltc_facility)+'</span>' : ''}</td>
       <td>${esc(r.reason)}</td>
       <td>${esc(r.billing_code)}</td>
-      <td style="text-align:center"><span title="${claimStatus}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#7a9e87':claimStatus==='Rejected'?'#c0392b':claimStatus==='Pending'?'#c07a2b':'#b4b2a9'}"></span></td>
+      <td style="text-align:center"><span title="${claimStatus}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#27ae60':claimStatus==='Rejected'?'#e74c3c':claimStatus==='Pending'?'#e67e22':'#bdc3c7'}"></span></td>
       <td style="text-align:center"><span class="visits-pill">${r.total_visits || 1}</span></td>
       ${customCells}
     </tr>`;
