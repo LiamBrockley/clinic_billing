@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.9</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.0</div>
   </div>
 </div>
 
@@ -728,6 +728,8 @@ function unlockApp() {
   resetInactivity();
   document.addEventListener('click', resetInactivity);
   document.addEventListener('keydown', resetInactivity);
+  // Focus noteInput so the page has an active focus context for speech recognition
+  setTimeout(() => document.getElementById('noteInput').focus(), 100);
 }
 
 function lockApp(reason) {
