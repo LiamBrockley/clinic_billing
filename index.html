@@ -947,11 +947,16 @@ Return ONLY valid JSON with exactly these fields:
     followupAnswers = {};
     followupQueue = [];
 
-    const missing = parsed.missing_fields || [];
-    // Check if patient is new and PHN not in record
-    if (!state.patients[nameKey] || !state.patients[nameKey].phn) {
-      if (!missing.includes('PHN')) missing.push('PHN');
+    const isKnownPatient = !!(state.patients[nameKey] && state.patients[nameKey].phn && state.patients[nameKey].phn.trim());
+
+    // Get AI's suggested missing fields, but never trust AI about PHN — we handle that ourselves
+    const missing = (parsed.missing_fields || []).filter(f => f !== 'PHN');
+
+    // Only ask for PHN if we genuinely don't have it on record
+    if (!isKnownPatient) {
+      missing.push('PHN');
     }
+
     missing.forEach(field => {
       const q = followupQuestionFor(field);
       if (q) followupQueue.push({ field, question: q });
