@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.1</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.2</div>
   </div>
 </div>
 
@@ -790,6 +790,67 @@ async function initMic() {
   }
 }
 
+function startRecognition(target, attempt) {
+  // attempt: how many times we've tried (to avoid infinite retry loops)
+  if (attempt > 3) { stopMic(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-CA';
+  recognition.interimResults = true;
+  recognition.continuous = true;
+
+  let didGetResults = false;
+  let didStart = false;
+
+  recognition.onstart = () => {
+    didStart = true;
+    isRecording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('micBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
+    document.getElementById('voiceStatus').textContent = 'Listening — tap ⏹ to stop & log';
+    document.getElementById('voiceStatus').classList.add('active');
+  };
+  recognition.onresult = e => {
+    didGetResults = true;
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    target.value = transcript;
+  };
+  recognition.onend = () => {
+    // If we got results or the user manually stopped (isRecording=false), treat as normal end
+    if (!isRecording || didGetResults) {
+      stopMic();
+      return;
+    }
+    // onend fired without results and we're still supposed to be recording —
+    // this means the audio pipeline wasn't ready. Retry after a short delay.
+    console.warn('Recognition ended without results, retrying… attempt', attempt + 1);
+    recognition = null;
+    isRecording = false;
+    setTimeout(() => startRecognition(target, attempt + 1), 300);
+  };
+  recognition.onerror = (e) => {
+    console.warn('Speech recognition error:', e.error);
+    if (e.error === 'not-allowed') {
+      stopMic();
+      alert('Microphone access was denied. Please allow mic access in your browser settings.');
+    } else if (isRecording) {
+      // Transient error — retry
+      recognition = null;
+      isRecording = false;
+      setTimeout(() => startRecognition(target, attempt + 1), 300);
+    } else {
+      stopMic();
+    }
+  };
+  try {
+    recognition.start();
+  } catch(e) {
+    console.warn('Recognition start threw:', e);
+    setTimeout(() => startRecognition(target, attempt + 1), 400);
+  }
+}
+
 function toggleMic() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
@@ -809,38 +870,13 @@ function toggleMic() {
     return;
   }
 
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.lang = 'en-CA';
-  recognition.interimResults = true;
-  recognition.continuous = true;
-
   const target = document.getElementById('followupArea').style.display !== 'none'
     ? document.getElementById('followupInput')
     : document.getElementById('noteInput');
 
-  recognition.onstart = () => {
-    isRecording = true;
-    document.getElementById('micBtn').classList.add('recording');
-    document.getElementById('micBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
-    document.getElementById('voiceStatus').textContent = 'Listening — tap ⏹ to stop & log';
-    document.getElementById('voiceStatus').classList.add('active');
-  };
-  recognition.onresult = e => {
-    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
-    target.value = transcript;
-  };
-  recognition.onend = () => {
-    stopMic();
-  };
-  recognition.onerror = (e) => {
-    console.warn('Speech error:', e.error);
-    stopMic();
-  };
-  // Small delay on start ensures any background warmup has fully released the mic
-  setTimeout(() => {
-    try { recognition.start(); } catch(e) { console.warn('Recognition start failed:', e); stopMic(); }
-  }, 150);
+  // Set isRecording true immediately so retry loop knows we want to be recording
+  isRecording = true;
+  startRecognition(target, 0);
 }
 
 function stopMic() {
