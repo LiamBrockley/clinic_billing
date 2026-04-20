@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.4</div>
   </div>
 </div>
 
@@ -363,6 +363,9 @@
     <div class="topbar-right">
       <span class="daily-badge" id="dailyBadge">0 today</span>
       <button onclick="exportCSV()" title="Export CSV">⬇ Export</button>
+      <label title="Import CSV" style="display:inline-flex;align-items:center;gap:4px;font-family:inherit;font-size:13px;cursor:pointer;padding:0.5rem 1rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--warm-white);color:var(--text)">
+        ⬆ Import <input type="file" accept=".csv" style="display:none" onchange="importCSV(event)">
+      </label>
       <button onclick="lockApp()" title="Lock">🔒 Lock</button>
     </div>
   </div>
@@ -1775,6 +1778,139 @@ function appendChatMsg(role, text) {
 // ════════════════════════════════════════
 //  EXPORT
 // ════════════════════════════════════════
+async function importCSV(event) {
+  const file = event.target.files[0];
+  event.target.value = ''; // reset so same file can be re-imported
+  if (!file) return;
+
+  const text = await file.text();
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) { alert('This file appears to be empty.'); return; }
+
+  // Parse header row
+  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+
+  // Parse data rows
+  const csvRows = [];
+  for (let i = 1; i < lines.length; i++) {
+    // Handle quoted fields with commas inside
+    const cols = [];
+    let current = '';
+    let inQuotes = false;
+    for (const ch of lines[i]) {
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { cols.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+    cols.push(current.trim());
+
+    if (cols.length < 3) continue;
+    const row = {};
+    headers.forEach((h, i) => { row[h] = cols[i] || ''; });
+    csvRows.push(row);
+  }
+
+  if (csvRows.length === 0) { alert('No valid rows found in this file.'); return; }
+
+  // Build a set of existing fingerprints: patient name + date + time
+  const existing = new Set(
+    state.log.map(r => `${(r.patient_name||'').toLowerCase().trim()}|${r.date}|${r.time}`)
+  );
+
+  // Identify new vs duplicate rows
+  const toAdd = [];
+  const skipped = [];
+  csvRows.forEach(row => {
+    const name = (row['Patient name'] || '').toLowerCase().trim();
+    const date = row['Date'] || '';
+    const time = row['Time'] || '';
+    const fingerprint = `${name}|${date}|${time}`;
+    if (existing.has(fingerprint)) {
+      skipped.push(row);
+    } else {
+      toAdd.push(row);
+    }
+  });
+
+  // Show confirmation dialog
+  let msg = '';
+  if (toAdd.length === 0) {
+    alert(`All ${skipped.length} appointments in this file already exist in your log. Nothing to import.`);
+    return;
+  }
+  msg = `Found ${csvRows.length} appointments in this file:
+
+`;
+  msg += `• ${toAdd.length} new appointment${toAdd.length !== 1 ? 's' : ''} will be added to your log
+`;
+  if (skipped.length > 0) msg += `• ${skipped.length} already exist and will be skipped
+`;
+  msg += `
+Your current data will not be changed or deleted.
+
+Proceed?`;
+
+  if (!confirm(msg)) return;
+
+  // Convert CSV rows to log entry format and add
+  const customFields = state.settings.custom_fields || [];
+  toAdd.forEach(row => {
+    const entry = {
+      patient_name:     row['Patient name']     || '',
+      date:             row['Date']             || '',
+      time:             row['Time']             || '',
+      duration:         row['Duration']         || '',
+      appointment_type: row['Appointment type'] || '',
+      ltc_facility:     row['LTC facility']     || '',
+      reason:           row['Reason']           || '',
+      phn:              row['PHN']              || '',
+      dob:              row['DOB']              || '',
+      gender:           row['Gender']           || '',
+      phone:            row['Phone']            || '',
+      billing_code:     row['Billing code']     || '',
+      fee:              row['Fee']              || '',
+      diagnosis_code:   row['Diagnosis code']   || '',
+      referred_by:      row['Referred by']      || '',
+      follow_up:        row['Follow-up']        || '',
+      claimed:          (row['Claimed'] || '').toLowerCase() === 'yes',
+      claim_status:     row['Claim status']     || '',
+      notes:            row['Notes']            || '',
+      total_visits:     parseInt(row['Total visits']) || 1,
+      image_b64:        null,
+      custom:           {}
+    };
+    customFields.forEach(cf => { entry.custom[cf] = row[cf] || ''; });
+
+    // Rebuild patient record if not already known
+    const nameKey = entry.patient_name.toLowerCase().trim();
+    if (nameKey) {
+      if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
+      const p = state.patients[nameKey];
+      if (entry.phn)    p.phn    = entry.phn;
+      if (entry.dob)    p.dob    = entry.dob;
+      if (entry.gender) p.gender = entry.gender;
+      if (entry.phone)  p.phone  = entry.phone;
+      p.visits = Math.max(p.visits || 0, entry.total_visits || 1);
+      if (entry.date)   p.last_seen = entry.date;
+    }
+
+    state.log.push(entry);
+  });
+
+  // Sort log by date+time descending
+  state.log.sort((a, b) => {
+    const da = new Date(a.date + ' ' + a.time);
+    const db = new Date(b.date + ' ' + b.time);
+    return db - da;
+  });
+
+  await saveState();
+  renderTable();
+  renderDirectory();
+  updateDailyBadge();
+  alert(`Done! ${toAdd.length} appointment${toAdd.length !== 1 ? 's' : ''} imported successfully.`);
+}
+
 async function exportCSV() {
   if (state.log.length === 0) { alert('No appointments to export yet.'); return; }
   const customFields = state.settings.custom_fields || [];
