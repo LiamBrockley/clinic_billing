@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v1.3</div>
   </div>
 </div>
 
@@ -728,11 +728,17 @@ function unlockApp() {
   resetInactivity();
   document.addEventListener('click', resetInactivity);
   document.addEventListener('keydown', resetInactivity);
-  // Silently open and cancel manual entry — this primes the DOM
-  // in the exact way that makes speech recognition work on first use
+  // Silently open and cancel manual entry — primes DOM for speech recognition
   setTimeout(() => {
+    const el = document.getElementById('previewArea');
+    el.style.opacity = '0';
+    el.style.pointerEvents = 'none';
     openManualEntry();
-    setTimeout(() => cancelPreview(), 50);
+    setTimeout(() => {
+      cancelPreview();
+      el.style.opacity = '';
+      el.style.pointerEvents = '';
+    }, 50);
   }, 300);
 }
 
