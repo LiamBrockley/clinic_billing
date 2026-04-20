@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.4</div>
   </div>
 </div>
 
@@ -1633,7 +1633,7 @@ async function sendChat() {
     }))
   });
 
-  const prompt = `You are a helpful medical billing assistant for a family doctor in BC, Canada. You have access to all their appointment records. Answer the doctor's question clearly and concisely, like a knowledgeable MOA would. Use plain language.
+  const prompt = `You are a helpful medical billing assistant for a family doctor in BC, Canada. You have READ-ONLY access to their appointment records — you can look things up and answer questions, but you cannot make any changes to records, update fields, or save anything. If asked to update, edit, or change any record, clearly say you are not able to do that and direct the doctor to make the change manually in the Patients tab or by clicking the relevant row in the Log. Answer questions clearly and concisely, like a knowledgeable MOA would. Use plain language.
 
 Records: ${summary}
 
