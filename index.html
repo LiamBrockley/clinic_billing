@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.8</div>
   </div>
 </div>
 
@@ -895,6 +895,9 @@ function stopMic() {
   document.getElementById('micBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>';
   document.getElementById('voiceStatus').textContent = 'Tap mic to dictate';
   document.getElementById('voiceStatus').classList.remove('active');
+  if (document.getElementById('followupArea').style.display !== 'none') {
+    document.getElementById('followupInput').value = '';
+  }
 }
 
 // ════════════════════════════════════════
@@ -950,6 +953,7 @@ Return ONLY valid JSON with exactly these fields:
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
+  "phn": "provincial health number if mentioned anywhere in the note — extract digits only, e.g. if they say 'PHN is 1234567890' or 'health number 1234567890' return '1234567890'. Empty string if not mentioned.",
   "notes": "any other relevant clinical notes",
   "missing_fields": ["list of important fields that are missing or unclear and should be asked about — choose from: patient_name, duration, appointment_type, reason, PHN. Only list genuinely missing ones."]${customFieldsList ? `,\n  "custom": {${state.settings.custom_fields.map(f => `"${f}": ""`).join(', ')}}` : ''}
 }`;
@@ -977,7 +981,7 @@ Return ONLY valid JSON with exactly these fields:
       diagnosis_code: parsed.diagnosis_code || '',
       billing_code: parsed.billing_code || '',
       fee: parsed.fee || '',
-      phn: '',
+      phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
       dob: '',
       gender: '',
       phone: '',
