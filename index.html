@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.6</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.7</div>
   </div>
 </div>
 
@@ -1005,12 +1005,13 @@ Return ONLY valid JSON with exactly these fields:
     followupQueue = [];
 
     const isKnownPatient = !!(state.patients[nameKey] && state.patients[nameKey].phn && state.patients[nameKey].phn.trim());
+    const phnInNote = !!(pendingEntry.phn && pendingEntry.phn.trim());
 
     // Get AI's suggested missing fields, but never trust AI about PHN — we handle that ourselves
     const missing = (parsed.missing_fields || []).filter(f => f !== 'PHN');
 
-    // Only ask for PHN if we genuinely don't have it on record
-    if (!isKnownPatient) {
+    // Only ask for PHN if we don't have it on record AND it wasn't mentioned in the note
+    if (!isKnownPatient && !phnInNote) {
       missing.push('PHN');
     }
 
