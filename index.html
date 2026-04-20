@@ -410,17 +410,26 @@
         </div>
       </div>
 
-      <!-- Export reminder -->
-      <div class="export-reminder" id="exportReminder">
-        <span>⚠</span>
-        <span id="exportReminderText"></span>
-        <button onclick="exportCSV()" style="font-size:12px;padding:3px 10px;margin-left:auto">Export now</button>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" onclick="switchTab('log')">Log</button>
+        <button class="panel-tab" onclick="switchTab('chat')">Ask AI</button>
+        <button class="panel-tab" onclick="switchTab('directory')">Patients</button>
+        <button class="panel-tab" onclick="switchTab('settings')">Settings</button>
       </div>
 
-      <!-- Log table -->
-      <div class="log-area">
+      <!-- LOG TAB -->
+      <div class="tab-content active" id="tab-log">
         <div class="log-header">
           <h3>Appointment Log <span id="rowCountBadge" style="font-size:11px;background:var(--sage-light);color:var(--sage-dark);padding:1px 7px;border-radius:10px;margin-left:4px">0</span></h3>
+        </div>
+        <div class="export-reminder" id="exportReminder">
+          <span>⚠</span>
+          <span id="exportReminderText"></span>
+          <button onclick="exportCSV()" style="font-size:12px;padding:3px 10px;margin-left:auto">Export now</button>
         </div>
         <div class="log-table-wrap">
           <table>
@@ -431,18 +440,9 @@
           </table>
         </div>
       </div>
-    </div>
-
-    <!-- RIGHT PANEL -->
-    <div class="right-panel">
-      <div class="panel-tabs">
-        <button class="panel-tab active" onclick="switchTab('chat')">Ask AI</button>
-        <button class="panel-tab" onclick="switchTab('directory')">Patients</button>
-        <button class="panel-tab" onclick="switchTab('settings')">Settings</button>
-      </div>
 
       <!-- AI CHAT TAB -->
-      <div class="tab-content active" id="tab-chat">
+      <div class="tab-content" id="tab-chat">
         <div class="chat-messages" id="chatMessages">
           <div class="chat-msg assistant">
             <div class="chat-bubble">Hello! I have access to all your appointment records. Ask me anything — for example, "How many patients have I seen this week?" or "When did I last see Gene Simmons?"</div>
@@ -775,7 +775,7 @@ function toggleMic() {
   recognition = new SR();
   recognition.lang = 'en-CA';
   recognition.interimResults = true;
-  recognition.continuous = false;
+  recognition.continuous = true;
 
   const target = document.getElementById('followupArea').style.display !== 'none'
     ? document.getElementById('followupInput')
@@ -785,7 +785,7 @@ function toggleMic() {
     isRecording = true;
     document.getElementById('micBtn').classList.add('recording');
     document.getElementById('micBtn').textContent = '⏹';
-    document.getElementById('voiceStatus').textContent = 'Listening…';
+    document.getElementById('voiceStatus').textContent = 'Listening — tap ⏹ to stop';
     document.getElementById('voiceStatus').classList.add('active');
   };
   recognition.onresult = e => {
@@ -793,12 +793,8 @@ function toggleMic() {
     target.value = transcript;
   };
   recognition.onend = () => {
+    // Only fires when user explicitly stopped — do nothing, let them review and submit manually
     stopMic();
-    if (target === document.getElementById('followupInput')) {
-      if (followupQueue.length > 0 && target.value.trim()) answerFollowup();
-    } else {
-      if (target.value.trim()) submitNote();
-    }
   };
   recognition.onerror = () => stopMic();
   recognition.start();
@@ -837,7 +833,7 @@ Return ONLY valid JSON with exactly these fields:
   "duration": "duration as string e.g. '20 min', empty string if not mentioned",
   "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
-  "reason": "chief complaint or reason for visit, concise",
+  "reason": "chief complaint or reason for visit — extract the medical condition only, 1-5 words, e.g. 'foot fungus' not 'she visited because she has foot fungus'",
   "diagnosis_code": "ICD-10 code if clearly stated, otherwise empty string",
   "billing_code": "MSP billing code if mentioned, otherwise empty string",
   "fee": "fee amount as number if mentioned, otherwise empty string",
@@ -954,12 +950,37 @@ function answerFollowup() {
   }
 }
 
+function wordsToDigits(str) {
+  const map = {
+    'zero':'0','one':'1','two':'2','three':'3','four':'4',
+    'five':'5','six':'6','seven':'7','eight':'8','nine':'9',
+    'oh':'0','nought':'0','double zero':'00'
+  };
+  let s = str.toLowerCase().trim();
+  // Replace written-out numbers with digits
+  Object.entries(map).forEach(([word, digit]) => {
+    s = s.replace(new RegExp('\\b' + word + '\\b', 'g'), digit);
+  });
+  // Remove spaces between digits to form a number string
+  s = s.replace(/(?<=\d) (?=\d)/g, '');
+  return s;
+}
+
+function cleanReason(str) {
+  // Strip leading narrative phrases like "she visited because", "the reason is", "patient has", etc.
+  return str
+    .replace(/^(she|he|they|patient)\s+(visited?|came|is here|called|presenting|presented|complain(s|ed)|has|had|said|reported|stated)?\s*(because|due to|for|with|about|regarding|that)?\s*/i, '')
+    .replace(/^(the\s+)?(reason\s+(for\s+)?(the\s+)?(visit|appointment|call)\s+(is|was|:)?\s*)/i, '')
+    .replace(/^(presenting\s+(complaint|issue|concern)\s*(is|was|:)?\s*)/i, '')
+    .trim();
+}
+
 function applyFollowupAnswer(field, answer) {
-  if (field === 'PHN') pendingEntry.phn = answer;
+  if (field === 'PHN') pendingEntry.phn = wordsToDigits(answer).replace(/\D/g, '');
   else if (field === 'patient_name') pendingEntry.patient_name = answer;
   else if (field === 'duration') pendingEntry.duration = answer;
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
-  else if (field === 'reason') pendingEntry.reason = answer;
+  else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
 }
 
 function showPreview() {
@@ -1558,7 +1579,7 @@ function checkExportReminder() {
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.panel-tab').forEach((btn, i) => {
-    const tabs = ['chat','directory','settings'];
+    const tabs = ['log','chat','directory','settings'];
     btn.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.tab-content').forEach(el => {
