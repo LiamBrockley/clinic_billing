@@ -795,7 +795,7 @@ function toggleMic() {
   recognition.onend = () => {
     stopMic();
     if (target === document.getElementById('followupInput')) {
-      answerFollowup();
+      if (followupQueue.length > 0 && target.value.trim()) answerFollowup();
     } else {
       if (target.value.trim()) submitNote();
     }
