@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.6</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.7</div>
   </div>
 </div>
 
@@ -947,7 +947,7 @@ async function submitNote() {
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-CA');
-  const timeStr = now.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+  const timeStr = now.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
 
   const customFieldsList = state.settings.custom_fields.join(', ');
   const prompt = `You are a medical billing assistant for a family doctor in British Columbia, Canada. Parse the following appointment note into structured JSON.
@@ -1166,7 +1166,7 @@ function openManualEntry() {
   }
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-CA');
-  const timeStr = now.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+  const timeStr = now.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false });
   pendingEntry = {
     patient_name: '',
     date: dateStr,
@@ -1342,7 +1342,7 @@ function getColumns() {
 
 // Maps column label to the field key used for sorting
 const COL_KEYS = {
-  'Date': 'date', 'Time': 'time', 'Dur (mins)': 'duration',
+  'Date': 'date', 'Dur (mins)': 'duration',
   'Patient': 'patient_name',
   'Type': 'appointment_type', 'Reason': 'reason',
   'Billing code': 'billing_code',
@@ -1488,6 +1488,12 @@ function renderTable() {
   // Sort
   if (sortCol) {
     rows.sort((a, b) => {
+      // Date column: sort by date+time combined for true chronological order
+      if (sortCol === 'date') {
+        const da = new Date((a.r.date || '') + 'T' + (a.r.time || '00:00'));
+        const db = new Date((b.r.date || '') + 'T' + (b.r.time || '00:00'));
+        return (da - db) * sortDir;
+      }
       let av = a.r[sortCol] || ''; let bv = b.r[sortCol] || '';
       if (!isNaN(av) && !isNaN(bv) && av !== '' && bv !== '') {
         return (parseFloat(av) - parseFloat(bv)) * sortDir;
@@ -1755,7 +1761,7 @@ function newAppointmentFromPatient(nameKey) {
   pendingEntry = {
     patient_name: displayName,
     date: now.toLocaleDateString('en-CA'),
-    time: now.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }),
+    time: now.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: false }),
     duration: '',
     appointment_type: '',
     ltc_facility: '',
