@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.3</div>
   </div>
 </div>
 
@@ -1399,11 +1399,21 @@ async function saveEdit() {
   // Update patient record
   const nameKey = (r.patient_name || '').toLowerCase().trim();
   if (state.patients[nameKey]) {
-    if (r.phn) state.patients[nameKey].phn = r.phn;
-    if (r.dob) state.patients[nameKey].dob = r.dob;
+    if (r.phn)    state.patients[nameKey].phn    = r.phn;
+    if (r.dob)    state.patients[nameKey].dob    = r.dob;
     if (r.gender) state.patients[nameKey].gender = r.gender;
-    if (r.phone) state.patients[nameKey].phone = r.phone;
+    if (r.phone)  state.patients[nameKey].phone  = r.phone;
   }
+
+  // Sync patient-level fields to all other log entries for this patient
+  state.log.forEach((entry, i) => {
+    if (i !== editingIndex && (entry.patient_name || '').toLowerCase().trim() === nameKey) {
+      if (r.phn)    entry.phn    = r.phn;
+      if (r.dob)    entry.dob    = r.dob;
+      if (r.gender) entry.gender = r.gender;
+      if (r.phone)  entry.phone  = r.phone;
+    }
+  });
 
   await saveState();
   renderTable();
@@ -1473,13 +1483,30 @@ function openPatientEditor(nameKey) {
 }
 
 async function savePatientEditor(nameKey) {
-  state.patients[nameKey].phn = document.getElementById('ep-phn').value;
-  state.patients[nameKey].dob = document.getElementById('ep-dob').value;
-  state.patients[nameKey].gender = document.getElementById('ep-gender').value;
-  state.patients[nameKey].phone = document.getElementById('ep-phone').value;
+  const phn    = document.getElementById('ep-phn').value;
+  const dob    = document.getElementById('ep-dob').value;
+  const gender = document.getElementById('ep-gender').value;
+  const phone  = document.getElementById('ep-phone').value;
+
+  state.patients[nameKey].phn    = phn;
+  state.patients[nameKey].dob    = dob;
+  state.patients[nameKey].gender = gender;
+  state.patients[nameKey].phone  = phone;
+
+  // Sync updated patient fields to every matching log entry
+  state.log.forEach(entry => {
+    if ((entry.patient_name || '').toLowerCase().trim() === nameKey) {
+      if (phn)    entry.phn    = phn;
+      if (dob)    entry.dob    = dob;
+      if (gender) entry.gender = gender;
+      if (phone)  entry.phone  = phone;
+    }
+  });
+
   await saveState();
   closePatientEditor();
   renderDirectory();
+  renderTable();
 }
 
 function closePatientEditor() {
