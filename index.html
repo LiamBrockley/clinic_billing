@@ -349,7 +349,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.4</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v0.5</div>
   </div>
 </div>
 
@@ -383,6 +383,13 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- Manual entry button -->
+      <div style="padding:0.4rem 1rem 0">
+        <button onclick="openManualEntry()" style="font-size:12px;color:var(--text-light);border:1px dashed var(--border);background:transparent;width:100%;padding:0.4rem;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onmouseover="this.style.background='var(--sage-light)'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:16px;line-height:1;color:var(--sage-dark)">+</span> Add manually
+        </button>
       </div>
 
       <!-- Follow-up prompts -->
@@ -426,6 +433,7 @@
       <div class="tab-content active" id="tab-log">
         <div class="log-header">
           <h3>Appointment Log <span id="rowCountBadge" style="font-size:11px;background:var(--sage-light);color:var(--sage-dark);padding:1px 7px;border-radius:10px;margin-left:4px">0</span></h3>
+          <button onclick="openManualEntry()" title="Add appointment manually" style="font-size:18px;line-height:1;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:var(--warm-white);cursor:pointer;color:var(--sage-dark)">+</button>
         </div>
         <div class="export-reminder" id="exportReminder">
           <span>⚠</span>
@@ -556,6 +564,35 @@
       <button class="btn-danger" onclick="deleteAppointment()">Delete</button>
       <button onclick="closeModal()">Cancel</button>
       <button class="btn-primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL ENTRY MODAL -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal">
+    <div class="modal-title">Add appointment manually</div>
+    <div style="margin-bottom:1rem">
+      <label style="font-size:11px;color:var(--text-light);display:block;margin-bottom:4px">Patient name</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="manualPatientInput" placeholder="Type a name…" style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.5rem 0.7rem;font-family:inherit;font-size:13px;background:var(--cream);color:var(--text);outline:none" oninput="filterManualPatients()" onkeydown="handleManualPatientKey(event)" />
+        <span style="font-size:12px;color:var(--text-light)">or</span>
+        <select id="manualPatientSelect" style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.5rem 0.7rem;font-family:inherit;font-size:13px;background:var(--cream);color:var(--text);outline:none;cursor:pointer" onchange="selectManualPatient()">
+          <option value="">— existing patient —</option>
+        </select>
+      </div>
+      <div id="manualPatientSuggestions" style="background:var(--warm-white);border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:2px;display:none;max-height:120px;overflow-y:auto;font-size:13px"></div>
+    </div>
+    <div class="modal-grid" id="manualModalGrid"></div>
+    <div id="manualModalImg" style="margin-bottom:0.75rem">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:5px 10px;background:var(--warm-white)">
+        📎 Attach image <input type="file" accept="image/*" style="display:none" onchange="attachManualImage(event)">
+      </label>
+      <div id="manualImgPreview" style="margin-top:6px"></div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeManualModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveManualEntry()">Add to log</button>
     </div>
   </div>
 </div>
@@ -1089,6 +1126,43 @@ function applyFollowupAnswer(field, answer) {
   else if (field === 'duration') pendingEntry.duration = parseDurationToMinutes(answer);
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
   else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
+}
+
+function openManualEntry() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-CA');
+  const timeStr = now.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+  pendingEntry = {
+    patient_name: '',
+    date: dateStr,
+    time: timeStr,
+    duration: '',
+    appointment_type: '',
+    ltc_facility: '',
+    reason: '',
+    diagnosis_code: '',
+    billing_code: '',
+    fee: '',
+    phn: '',
+    dob: '',
+    gender: '',
+    phone: '',
+    referred_by: '',
+    follow_up: '',
+    notes: '',
+    claimed: false,
+    claim_status: '',
+    image_b64: null,
+    custom: {}
+  };
+  pendingImageB64 = null;
+  // Hide badge since we don't know patient yet
+  document.getElementById('followupArea').style.display = 'none';
+  showPreview();
+  // Clear badge
+  const badge = document.getElementById('patientBadge');
+  badge.className = 'patient-badge';
+  badge.textContent = '';
 }
 
 function showPreview() {
@@ -1722,6 +1796,180 @@ function switchTab(tab) {
   });
   if (tab === 'directory') renderDirectory();
   if (tab === 'settings') renderSettings();
+}
+
+// ════════════════════════════════════════
+//  MANUAL ENTRY
+// ════════════════════════════════════════
+let manualImageB64 = null;
+
+function openManualEntry() {
+  manualImageB64 = null;
+  document.getElementById('manualImgPreview').innerHTML = '';
+
+  // Populate existing patient dropdown
+  const sel = document.getElementById('manualPatientSelect');
+  sel.innerHTML = '<option value="">— existing patient —</option>';
+  Object.keys(state.patients).sort().forEach(nameKey => {
+    const opt = document.createElement('option');
+    opt.value = nameKey;
+    opt.textContent = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('manualPatientInput').value = '';
+  document.getElementById('manualPatientSuggestions').style.display = 'none';
+  buildManualGrid('', {});
+  document.getElementById('manualModal').classList.add('open');
+}
+
+function buildManualGrid(patientName, prefill) {
+  const now = new Date();
+  const grid = document.getElementById('manualModalGrid');
+  const fields = [
+    { key: 'date',             label: 'Date',              default: now.toLocaleDateString('en-CA') },
+    { key: 'time',             label: 'Time',              default: now.toLocaleTimeString('en-CA', {hour:'numeric',minute:'2-digit'}) },
+    { key: 'duration',         label: 'Duration (mins)',   default: '' },
+    { key: 'appointment_type', label: 'Type',              default: '', type: 'select', options: state.settings.appt_types },
+    { key: 'ltc_facility',     label: 'LTC facility',      default: '', type: 'select', options: [''].concat(state.settings.ltc_facilities) },
+    { key: 'reason',           label: 'Reason for visit',  default: '' },
+    { key: 'phn',              label: 'PHN',               default: '' },
+    { key: 'dob',              label: 'Date of birth',     default: '' },
+    { key: 'gender',           label: 'Gender',            default: '' },
+    { key: 'phone',            label: 'Phone',             default: '' },
+    { key: 'billing_code',     label: 'Billing code',      default: '', type: 'select', options: [''].concat(state.settings.billing_codes) },
+    { key: 'fee',              label: 'Fee ($)',           default: '' },
+    { key: 'diagnosis_code',   label: 'Diagnosis code',    default: '' },
+    { key: 'referred_by',      label: 'Referred by',       default: '' },
+    { key: 'follow_up',        label: 'Follow-up',         default: '' },
+    { key: 'claim_status',     label: 'Claim status',      default: '', type: 'select', options: ['','Pending','Accepted','Rejected'] },
+    { key: 'notes',            label: 'Notes',             default: '', full: true },
+  ];
+
+  state.settings.custom_fields.forEach(cf => {
+    fields.push({ key: 'custom_' + cf, label: cf, default: '', isCustom: true, customKey: cf });
+  });
+
+  grid.innerHTML = '';
+  fields.forEach(f => {
+    const val = prefill[f.key] !== undefined ? prefill[f.key] : f.default;
+    const div = document.createElement('div');
+    div.className = 'modal-field' + (f.full ? ' full' : '');
+    div.innerHTML = '<label>' + f.label + '</label>';
+    if (f.type === 'select') {
+      const sel = document.createElement('select');
+      sel.dataset.key = f.key;
+      f.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o || '—';
+        if (o === val) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      div.appendChild(sel);
+    } else {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.dataset.key = f.key; inp.value = val || '';
+      if (f.isCustom) inp.dataset.customKey = f.customKey;
+      div.appendChild(inp);
+    }
+    grid.appendChild(div);
+  });
+}
+
+function filterManualPatients() {
+  const q = document.getElementById('manualPatientInput').value.toLowerCase().trim();
+  const box = document.getElementById('manualPatientSuggestions');
+  if (!q) { box.style.display = 'none'; return; }
+  const matches = Object.keys(state.patients).filter(k => k.includes(q)).slice(0, 6);
+  if (matches.length === 0) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = matches.map(k => {
+    const display = k.replace(/\b\w/g, c => c.toUpperCase());
+    return '<div style="padding:6px 10px;cursor:pointer" onmousedown="pickManualSuggestion('' + k + '')" onmouseover="this.style.background='var(--sage-light)'" onmouseout="this.style.background=''">'+display+'</div>';
+  }).join('');
+}
+
+function handleManualPatientKey(e) {
+  if (e.key === 'Enter') {
+    document.getElementById('manualPatientSuggestions').style.display = 'none';
+    autofillManualPatient(document.getElementById('manualPatientInput').value.toLowerCase().trim());
+  }
+}
+
+function pickManualSuggestion(nameKey) {
+  const display = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  document.getElementById('manualPatientInput').value = display;
+  document.getElementById('manualPatientSuggestions').style.display = 'none';
+  autofillManualPatient(nameKey);
+}
+
+function selectManualPatient() {
+  const nameKey = document.getElementById('manualPatientSelect').value;
+  if (!nameKey) return;
+  const display = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  document.getElementById('manualPatientInput').value = display;
+  autofillManualPatient(nameKey);
+}
+
+function autofillManualPatient(nameKey) {
+  const p = state.patients[nameKey];
+  if (!p) { buildManualGrid(nameKey, {}); return; }
+  buildManualGrid(nameKey, {
+    phn: p.phn || '', dob: p.dob || '', gender: p.gender || '', phone: p.phone || ''
+  });
+}
+
+function attachManualImage(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    manualImageB64 = ev.target.result;
+    document.getElementById('manualImgPreview').innerHTML =
+      '<img src="' + manualImageB64 + '" style="max-height:80px;border-radius:6px;border:1px solid var(--border);margin-top:4px" />';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveManualEntry() {
+  const patientName = document.getElementById('manualPatientInput').value.trim();
+  if (!patientName) { alert('Please enter a patient name.'); return; }
+
+  const entry = {
+    patient_name: patientName,
+    image_b64: manualImageB64 || null,
+    claimed: false,
+    custom: {}
+  };
+
+  document.querySelectorAll('#manualModalGrid input[data-key], #manualModalGrid select[data-key]').forEach(el => {
+    const ck = el.dataset.customKey;
+    if (ck) entry.custom[ck] = el.value;
+    else entry[el.dataset.key] = el.value;
+  });
+
+  // Update or create patient record
+  const nameKey = patientName.toLowerCase().trim();
+  if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
+  const p = state.patients[nameKey];
+  if (entry.phn)    p.phn    = entry.phn;
+  if (entry.dob)    p.dob    = entry.dob;
+  if (entry.gender) p.gender = entry.gender;
+  if (entry.phone)  p.phone  = entry.phone;
+  p.visits = (p.visits || 0) + 1;
+  p.last_seen = entry.date;
+  entry.total_visits = p.visits;
+
+  state.log.unshift(entry);
+  await saveState();
+  renderTable();
+  renderDirectory();
+  updateDailyBadge();
+  closeManualModal();
+}
+
+function closeManualModal() {
+  document.getElementById('manualModal').classList.remove('open');
+  manualImageB64 = null;
 }
 
 // ════════════════════════════════════════
