@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Billing Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sage: #7a9e87;
+    --sage-light: #e8f0eb;
+    --sage-mid: #b8d0bf;
+    --sage-dark: #4a6e57;
+    --cream: #faf8f4;
+    --warm-white: #ffffff;
+    --text: #2c3328;
+    --text-mid: #5a6b54;
+    --text-light: #8a9e84;
+    --border: #d4e0d0;
+    --border-light: #eaf0e8;
+    --danger: #c0392b;
+    --danger-light: #fdf0ee;
+    --warn: #c07a2b;
+    --warn-light: #fdf5ee;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 4px rgba(74,110,87,0.08);
+    --shadow-md: 0 4px 16px rgba(74,110,87,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+  /* ── LOCK SCREEN ── */
+  #lockScreen {
+    position: fixed; inset: 0; background: var(--cream);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; flex-direction: column; gap: 0;
+  }
+  .lock-card {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2.5rem 2.5rem 2rem;
+    width: 340px; box-shadow: var(--shadow-md);
+    display: flex; flex-direction: column; gap: 1.25rem;
+  }
+  .lock-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--sage-dark); }
+  .lock-subtitle { font-size: 13px; color: var(--text-light); margin-top: -0.75rem; }
+  .lock-message { font-size: 13px; color: var(--warn); background: var(--warn-light); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; display: none; }
+  .lock-card input[type=password] {
+    width: 100%; padding: 0.65rem 0.9rem; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit; font-size: 14px;
+    background: var(--cream); color: var(--text); outline: none;
+    transition: border-color 0.2s;
+  }
+  .lock-card input[type=password]:focus { border-color: var(--sage); }
+  .lock-card .btn-primary { width: 100%; }
+  .lock-error { font-size: 12px; color: var(--danger); display: none; }
+
+  /* ── MAIN LAYOUT ── */
+  #app { display: none; min-height: 100vh; }
+  .topbar {
+    background: var(--warm-white); border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem; height: 52px; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 0.75rem; }
+  .topbar-logo { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--sage-dark); }
+  .topbar-date { font-size: 12px; color: var(--text-light); }
+  .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .daily-badge {
+    font-size: 12px; background: var(--sage-light); color: var(--sage-dark);
+    padding: 3px 10px; border-radius: 20px; font-weight: 500;
+  }
+
+  /* ── BUTTONS ── */
+  button, .btn {
+    font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--warm-white); color: var(--text);
+    padding: 0.5rem 1rem; transition: all 0.15s; display: inline-flex;
+    align-items: center; gap: 6px;
+  }
+  button:hover { background: var(--sage-light); border-color: var(--sage-mid); }
+  button:active { transform: scale(0.98); }
+  .btn-primary {
+    background: var(--sage); color: white; border-color: var(--sage);
+  }
+  .btn-primary:hover { background: var(--sage-dark); border-color: var(--sage-dark); }
+  .btn-danger { background: var(--danger-light); color: var(--danger); border-color: #e8b0aa; }
+  .btn-danger:hover { background: #f8d8d5; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-icon {
+    padding: 0.45rem; border-radius: 50%; width: 34px; height: 34px;
+    justify-content: center; font-size: 15px;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .main { display: flex; gap: 0; height: calc(100vh - 52px); overflow: hidden; }
+  .left-panel {
+    width: 380px; min-width: 320px; border-right: 1px solid var(--border);
+    background: var(--warm-white); display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--cream); }
+
+  /* ── INPUT AREA ── */
+  .input-area { padding: 1rem; border-bottom: 1px solid var(--border-light); }
+  .input-area-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); margin-bottom: 0.6rem; font-weight: 500; }
+  .note-wrap {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--cream); overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .note-wrap:focus-within { border-color: var(--sage); }
+  #noteInput {
+    width: 100%; border: none; background: transparent; resize: none;
+    font-family: inherit; font-size: 14px; color: var(--text);
+    padding: 0.75rem; outline: none; line-height: 1.6; min-height: 80px;
+  }
+  .note-actions {
+    display: flex; align-items: center; gap: 6px; padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--border-light); background: var(--warm-white);
+  }
+  .mic-btn {
+    width: 32px; height: 32px; border-radius: 50%; padding: 0;
+    justify-content: center; font-size: 14px; flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .mic-btn.recording { background: #fee; border-color: var(--danger); color: var(--danger); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.3)} 50%{box-shadow:0 0 0 6px rgba(192,57,43,0)} }
+  .submit-btn { margin-left: auto; }
+  .voice-status { font-size: 11px; color: var(--text-light); flex: 1; }
+  .voice-status.active { color: var(--danger); }
+
+  /* ── FOLLOW-UP CHAT ── */
+  .followup-area {
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-light);
+    display: none; background: var(--sage-light);
+  }
+  .followup-bubble {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.65rem 0.9rem;
+    font-size: 13px; color: var(--text); margin-bottom: 0.6rem;
+    line-height: 1.5;
+  }
+  .followup-input-row { display: flex; gap: 6px; align-items: center; }
+  #followupInput {
+    flex: 1; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem; font-family: inherit; font-size: 13px;
+    background: var(--warm-white); color: var(--text); outline: none;
+  }
+  #followupInput:focus { border-color: var(--sage); }
+
+  /* ── PREVIEW CARD ── */
+  .preview-area {
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-light);
+    display: none;
+  }
+  .preview-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); margin-bottom: 0.6rem; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .patient-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500;
+  }
+  .badge-new { background: #e8f4fd; color: #2980b9; }
+  .badge-returning { background: var(--sage-light); color: var(--sage-dark); }
+  .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 0.75rem; }
+  .preview-field {
+    background: var(--cream); border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm); padding: 0.5rem 0.65rem;
+  }
+  .preview-field.full { grid-column: span 2; }
+  .pf-label { font-size: 10px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+  .pf-value { font-size: 13px; color: var(--text); font-weight: 500; }
+  .pf-input {
+    width: 100%; border: none; background: transparent; font-family: inherit;
+    font-size: 13px; color: var(--text); font-weight: 500; outline: none;
+  }
+  .pf-select {
+    width: 100%; border: none; background: transparent; font-family: inherit;
+    font-size: 13px; color: var(--text); font-weight: 500; outline: none; cursor: pointer;
+  }
+  .preview-img { margin-top: 4px; }
+  .preview-img img { max-height: 80px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; }
+  .preview-actions { display: flex; gap: 6px; }
+  .img-attach-btn { font-size: 12px; }
+
+  /* ── LOG TABLE ── */
+  .log-area { flex: 1; overflow: auto; padding: 1rem; }
+  .log-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .log-header h3 { font-size: 13px; font-weight: 500; color: var(--text-mid); }
+  .export-reminder {
+    font-size: 12px; background: var(--warn-light); color: var(--warn);
+    border: 1px solid #e8c89a; border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; display: none;
+    align-items: center; gap: 8px;
+  }
+  .log-table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); background: var(--warm-white); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
+  thead th {
+    padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light);
+    background: var(--cream); border-bottom: 1px solid var(--border);
+    white-space: nowrap; position: sticky; top: 0;
+  }
+  tbody tr { border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--sage-light); }
+  tbody td { padding: 7px 10px; color: var(--text); vertical-align: middle; }
+  .td-name { font-weight: 500; }
+  .td-muted { color: var(--text-light); }
+  .visits-pill {
+    display: inline-block; font-size: 10px; padding: 1px 6px;
+    border-radius: 10px; background: var(--sage-light); color: var(--sage-dark); font-weight: 500;
+  }
+  .claimed-check { color: var(--sage); font-size: 14px; }
+  .td-thumb img { height: 28px; border-radius: 3px; border: 1px solid var(--border); }
+  .empty-log { text-align: center; padding: 3rem; color: var(--text-light); font-size: 13px; }
+
+  /* ── RIGHT PANEL: TABS ── */
+  .panel-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--warm-white); padding: 0 1rem; }
+  .panel-tab {
+    font-size: 12px; padding: 0.75rem 0.9rem; cursor: pointer; border-bottom: 2px solid transparent;
+    color: var(--text-light); font-weight: 500; transition: all 0.15s; margin-bottom: -1px;
+    background: none; border-top: none; border-left: none; border-right: none; border-radius: 0;
+  }
+  .panel-tab:hover { color: var(--text); background: none; }
+  .panel-tab.active { color: var(--sage-dark); border-bottom-color: var(--sage); }
+  .tab-content { display: none; flex: 1; overflow: auto; padding: 1rem; }
+  .tab-content.active { display: block; }
+
+  /* ── AI CHAT ── */
+  .chat-messages { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; min-height: 100px; }
+  .chat-msg { max-width: 85%; }
+  .chat-msg.assistant { align-self: flex-start; }
+  .chat-msg.user { align-self: flex-end; }
+  .chat-bubble {
+    padding: 0.65rem 0.9rem; border-radius: var(--radius); font-size: 13px; line-height: 1.5;
+  }
+  .chat-msg.assistant .chat-bubble { background: var(--warm-white); border: 1px solid var(--border); color: var(--text); }
+  .chat-msg.user .chat-bubble { background: var(--sage); color: white; }
+  .chat-input-row { display: flex; gap: 6px; align-items: flex-end; position: sticky; bottom: 0; background: var(--cream); padding-top: 0.5rem; }
+  #chatInput {
+    flex: 1; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.65rem 0.9rem; font-family: inherit; font-size: 13px;
+    background: var(--warm-white); color: var(--text); outline: none; resize: none; min-height: 40px; max-height: 120px;
+  }
+  #chatInput:focus { border-color: var(--sage); }
+
+  /* ── PATIENT DIRECTORY ── */
+  .dir-search { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.9rem; font-family: inherit; font-size: 13px; background: var(--warm-white); color: var(--text); outline: none; margin-bottom: 0.75rem; }
+  .dir-search:focus { border-color: var(--sage); }
+  .patient-card {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.9rem 1rem; margin-bottom: 0.5rem; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .patient-card:hover { border-color: var(--sage-mid); }
+  .patient-card-name { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+  .patient-card-meta { font-size: 12px; color: var(--text-light); display: flex; gap: 1rem; flex-wrap: wrap; }
+  .patient-editor {
+    background: var(--warm-white); border: 1px solid var(--sage-mid);
+    border-radius: var(--radius); padding: 1rem; margin-bottom: 0.75rem; display: none;
+  }
+  .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.75rem; }
+  .editor-field label { font-size: 11px; color: var(--text-light); display: block; margin-bottom: 3px; }
+  .editor-field input, .editor-field select {
+    width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.45rem 0.6rem; font-family: inherit; font-size: 13px;
+    background: var(--cream); color: var(--text); outline: none;
+  }
+  .editor-field input:focus, .editor-field select:focus { border-color: var(--sage); }
+  .editor-field.full { grid-column: span 2; }
+
+  /* ── SETTINGS ── */
+  .settings-section { margin-bottom: 1.5rem; }
+  .settings-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); font-weight: 500; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border-light); }
+  .setting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem; }
+  .setting-row label { font-size: 13px; color: var(--text-mid); flex: 1; }
+  .setting-row input[type=text], .setting-row input[type=password], .setting-row input[type=number] {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.45rem 0.7rem; font-family: inherit; font-size: 13px;
+    background: var(--cream); color: var(--text); outline: none; width: 200px;
+  }
+  .setting-row input:focus { border-color: var(--sage); }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
+    background: var(--sage-light); color: var(--sage-dark); border: 1px solid var(--sage-mid);
+    border-radius: 20px; padding: 3px 10px;
+  }
+  .tag-remove { cursor: pointer; color: var(--sage-dark); font-size: 14px; line-height: 1; }
+  .tag-remove:hover { color: var(--danger); }
+  .add-tag-row { display: flex; gap: 6px; }
+  .add-tag-row input {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.4rem 0.7rem; font-family: inherit; font-size: 13px;
+    background: var(--cream); color: var(--text); outline: none; flex: 1;
+  }
+  .add-tag-row input:focus { border-color: var(--sage); }
+
+  /* ── EDIT MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(44,51,40,0.35);
+    display: none; align-items: center; justify-content: center; z-index: 500;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--warm-white); border-radius: 14px; border: 1px solid var(--border);
+    padding: 1.5rem; width: 540px; max-width: 95vw; max-height: 85vh; overflow-y: auto;
+    box-shadow: var(--shadow-md);
+  }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--sage-dark); margin-bottom: 1rem; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+  .modal-field label { font-size: 11px; color: var(--text-light); display: block; margin-bottom: 3px; }
+  .modal-field input, .modal-field select, .modal-field textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.5rem 0.7rem; font-family: inherit; font-size: 13px;
+    background: var(--cream); color: var(--text); outline: none;
+  }
+  .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { border-color: var(--sage); }
+  .modal-field.full { grid-column: span 2; }
+  .modal-field textarea { resize: vertical; min-height: 60px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 0.75rem; border-top: 1px solid var(--border-light); }
+  .modal-img { max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-top: 6px; cursor: pointer; }
+
+  /* ── LIGHTBOX ── */
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 900; cursor: pointer; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: var(--radius); }
+
+  /* ── LOADING SPINNER ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--sage-mid); border-top-color: var(--sage-dark); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--sage-mid); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOCK SCREEN ══════════════ -->
+<div id="lockScreen">
+  <div class="lock-card">
+    <div>
+      <div class="lock-title">Clinic Billing</div>
+      <div class="lock-subtitle">Enter your password to continue</div>
+    </div>
+    <div id="lockMessage" class="lock-message"></div>
+    <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
+    <div id="lockError" class="lock-error"></div>
+    <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">Clinic Billing</div>
+      <div class="topbar-date" id="topbarDate"></div>
+    </div>
+    <div class="topbar-right">
+      <span class="daily-badge" id="dailyBadge">0 today</span>
+      <button onclick="exportCSV()" title="Export CSV">⬇ Export</button>
+      <button onclick="lockApp()" title="Lock">🔒 Lock</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <!-- Input area -->
+      <div class="input-area">
+        <div class="input-area-title">New Appointment</div>
+        <div class="note-wrap">
+          <textarea id="noteInput" placeholder="Dictate or type — e.g. Gene Simmons, 20 min phone, foot fungus" rows="3"></textarea>
+          <div class="note-actions">
+            <button class="mic-btn btn-icon" id="micBtn" onclick="toggleMic()" title="Toggle microphone">🎙</button>
+            <span class="voice-status" id="voiceStatus">Tap mic to dictate</span>
+            <button class="btn-primary submit-btn" id="submitBtn" onclick="submitNote()">
+              <span id="submitLabel">Log it</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Follow-up prompts -->
+      <div class="followup-area" id="followupArea">
+        <div class="followup-bubble" id="followupQuestion"></div>
+        <div class="followup-input-row">
+          <input type="text" id="followupInput" placeholder="Type or use mic above…" onkeydown="if(event.key==='Enter')answerFollowup()" />
+          <button class="btn-primary" onclick="answerFollowup()">→</button>
+        </div>
+      </div>
+
+      <!-- Preview card -->
+      <div class="preview-area" id="previewArea">
+        <div class="preview-title">
+          Review appointment
+          <span class="patient-badge" id="patientBadge"></span>
+        </div>
+        <div class="preview-grid" id="previewGrid"></div>
+        <div class="preview-img" id="previewImgWrap" style="display:none"></div>
+        <div class="preview-actions">
+          <label class="img-attach-btn" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.4rem 0.75rem;background:var(--warm-white)">
+            📎 Attach image <input type="file" accept="image/*" style="display:none" onchange="attachImage(event)">
+          </label>
+          <button class="btn-primary" onclick="confirmAppointment()" style="margin-left:auto">Confirm &amp; save</button>
+          <button onclick="cancelPreview()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Export reminder -->
+      <div class="export-reminder" id="exportReminder">
+        <span>⚠</span>
+        <span id="exportReminderText"></span>
+        <button onclick="exportCSV()" style="font-size:12px;padding:3px 10px;margin-left:auto">Export now</button>
+      </div>
+
+      <!-- Log table -->
+      <div class="log-area">
+        <div class="log-header">
+          <h3>Appointment Log <span id="rowCountBadge" style="font-size:11px;background:var(--sage-light);color:var(--sage-dark);padding:1px 7px;border-radius:10px;margin-left:4px">0</span></h3>
+        </div>
+        <div class="log-table-wrap">
+          <table>
+            <thead>
+              <tr id="tableHead"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" onclick="switchTab('chat')">Ask AI</button>
+        <button class="panel-tab" onclick="switchTab('directory')">Patients</button>
+        <button class="panel-tab" onclick="switchTab('settings')">Settings</button>
+      </div>
+
+      <!-- AI CHAT TAB -->
+      <div class="tab-content active" id="tab-chat">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg assistant">
+            <div class="chat-bubble">Hello! I have access to all your appointment records. Ask me anything — for example, "How many patients have I seen this week?" or "When did I last see Gene Simmons?"</div>
+          </div>
+        </div>
+        <div class="chat-input-row">
+          <textarea id="chatInput" placeholder="Ask about your records…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+          <button class="btn-primary" onclick="sendChat()">→</button>
+        </div>
+      </div>
+
+      <!-- PATIENT DIRECTORY TAB -->
+      <div class="tab-content" id="tab-directory">
+        <input class="dir-search" id="dirSearch" placeholder="Search patients…" oninput="renderDirectory()" />
+        <div id="patientEditor" class="patient-editor"></div>
+        <div id="patientList"></div>
+      </div>
+
+      <!-- SETTINGS TAB -->
+      <div class="tab-content" id="tab-settings">
+        <div class="settings-section">
+          <h4>Security</h4>
+          <div class="setting-row">
+            <label>Current password</label>
+            <input type="password" id="oldPass" placeholder="Current password" />
+          </div>
+          <div class="setting-row">
+            <label>New password</label>
+            <input type="password" id="newPass" placeholder="New password" />
+          </div>
+          <div class="setting-row">
+            <label>Confirm new password</label>
+            <input type="password" id="confirmPass" placeholder="Confirm password" />
+          </div>
+          <div class="setting-row">
+            <label>Auto-lock after inactivity</label>
+            <input type="number" id="lockMinutes" value="30" min="5" max="240" style="width:80px" /> <span style="font-size:13px;color:var(--text-light)">minutes</span>
+          </div>
+          <button class="btn-primary" onclick="changePassword()" style="margin-top:4px">Update password</button>
+          <div id="passMsg" style="font-size:12px;margin-top:6px;display:none"></div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Anthropic API Key</h4>
+          <div class="setting-row">
+            <label>API Key</label>
+            <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" style="width:260px" />
+          </div>
+          <button onclick="saveApiKey()" style="margin-top:4px">Save key</button>
+          <div id="apiKeyMsg" style="font-size:12px;margin-top:6px;color:var(--sage-dark);display:none">Key saved.</div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Appointment Types</h4>
+          <div class="tag-list" id="apptTypeList"></div>
+          <div class="add-tag-row">
+            <input type="text" id="newApptType" placeholder="Add type…" onkeydown="if(event.key==='Enter')addTag('apptType')" />
+            <button onclick="addTag('apptType')">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>LTC Facilities</h4>
+          <div class="tag-list" id="ltcFacilityList"></div>
+          <div class="add-tag-row">
+            <input type="text" id="newLtcFacility" placeholder="Add facility…" onkeydown="if(event.key==='Enter')addTag('ltcFacility')" />
+            <button onclick="addTag('ltcFacility')">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>MSP Billing Codes</h4>
+          <div class="tag-list" id="billingCodeList"></div>
+          <div class="add-tag-row">
+            <input type="text" id="newBillingCode" placeholder="e.g. 00100 – General visit" onkeydown="if(event.key==='Enter')addTag('billingCode')" />
+            <button onclick="addTag('billingCode')">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Custom Fields</h4>
+          <p style="font-size:12px;color:var(--text-light);margin-bottom:8px">These fields will appear in the appointment form and log.</p>
+          <div class="tag-list" id="customFieldList"></div>
+          <div class="add-tag-row">
+            <input type="text" id="newCustomField" placeholder="e.g. Interpreter required" onkeydown="if(event.key==='Enter')addTag('customField')" />
+            <button onclick="addTag('customField')">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Data</h4>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="exportCSV()">⬇ Export billing_log CSV</button>
+            <button class="btn-danger" onclick="confirmClearData()">Clear all data</button>
+          </div>
+          <p style="font-size:12px;color:var(--text-light);margin-top:8px">Tip: Set your browser's default download folder to your Documents/Clinic folder so exports always land in the right place.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">Edit Appointment</div>
+    <div class="modal-grid" id="editModalGrid"></div>
+    <div id="editModalImg" style="margin-bottom:0.75rem"></div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteAppointment()">Delete</button>
+      <button onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="Enlarged image" />
+</div>
+
+<script>
+// ════════════════════════════════════════
+//  CONFIGURATION & STATE
+// ════════════════════════════════════════
+const STORAGE_KEY = 'clinicbilling_v2';
+const DEFAULT_PASSWORD = 'clinic2024';
+const SALT = 'clinicbillingsalt_v2_';
+
+let sessionKey = null; // derived from password, used for crypto
+let state = null;      // decrypted app state
+let pendingEntry = null;
+let followupQueue = [];
+let followupAnswers = {};
+let pendingImageB64 = null;
+let editingIndex = null;
+let inactivityTimer = null;
+let recognition = null;
+let isRecording = false;
+let activeTab = 'chat';
+
+const DEFAULT_STATE = {
+  password_hash: null,
+  log: [],
+  patients: {},
+  last_export: null,
+  settings: {
+    lock_minutes: 30,
+    api_key: 'PASTE_YOUR_API_KEY_HERE',
+    appt_types: ['In-person','Phone','Video','Home visit','LTC visit'],
+    ltc_facilities: ['Facility 1','Facility 2','Facility 3','Facility 4'],
+    billing_codes: [
+      '00100 – GP office visit',
+      '00101 – Telephone consultation',
+      '00102 – Video consultation',
+      '00120 – Comprehensive exam',
+      '00140 – Home visit',
+      '13005 – Preventive care counselling',
+      '14033 – Pap smear',
+      '00115 – Extended office visit'
+    ],
+    custom_fields: []
+  }
+};
+
+// ════════════════════════════════════════
+//  CRYPTO HELPERS (AES-256-GCM)
+// ════════════════════════════════════════
+async function deriveKey(password) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode(SALT), iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+
+async function encrypt(key, data) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+  const combined = new Uint8Array(iv.byteLength + ct.byteLength);
+  combined.set(iv, 0); combined.set(new Uint8Array(ct), iv.byteLength);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decrypt(key, b64) {
+  try {
+    const combined = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ct = combined.slice(12);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+    return JSON.parse(new TextDecoder().decode(pt));
+  } catch { return null; }
+}
+
+async function hashPassword(password) {
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest('SHA-256', enc.encode(SALT + password));
+  return btoa(String.fromCharCode(...new Uint8Array(hash)));
+}
+
+// ════════════════════════════════════════
+//  PERSISTENCE
+// ════════════════════════════════════════
+async function saveState() {
+  if (!sessionKey || !state) return;
+  const encrypted = await encrypt(sessionKey, state);
+  localStorage.setItem(STORAGE_KEY, encrypted);
+}
+
+async function loadState(key) {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  return await decrypt(key, raw);
+}
+
+// ════════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════════
+async function attemptLogin() {
+  const pw = document.getElementById('passwordInput').value;
+  if (!pw) return;
+  const errEl = document.getElementById('lockError');
+  errEl.style.display = 'none';
+
+  const raw = localStorage.getItem(STORAGE_KEY);
+
+  if (!raw) {
+    // First time — set up with default password
+    if (pw !== DEFAULT_PASSWORD) {
+      // Allow any password on first setup
+    }
+    const key = await deriveKey(pw);
+    const hash = await hashPassword(pw);
+    const newState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    newState.password_hash = hash;
+    sessionKey = key;
+    state = newState;
+    await saveState();
+    unlockApp();
+    return;
+  }
+
+  // Try to decrypt with entered password
+  const key = await deriveKey(pw);
+  const decrypted = await loadState(key);
+  if (!decrypted) {
+    errEl.textContent = 'Incorrect password. Please try again.';
+    errEl.style.display = 'block';
+    document.getElementById('passwordInput').value = '';
+    return;
+  }
+  sessionKey = key;
+  state = decrypted;
+  // Migrate missing settings
+  if (!state.settings) state.settings = DEFAULT_STATE.settings;
+  ['appt_types','ltc_facilities','billing_codes','custom_fields'].forEach(k => {
+    if (!state.settings[k]) state.settings[k] = DEFAULT_STATE.settings[k];
+  });
+  if (!state.settings.lock_minutes) state.settings.lock_minutes = 30;
+  if (!state.settings.api_key) state.settings.api_key = 'PASTE_YOUR_API_KEY_HERE';
+  unlockApp();
+}
+
+function unlockApp() {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('lockMessage').style.display = 'none';
+  document.getElementById('passwordInput').value = '';
+  initApp();
+  resetInactivity();
+  document.addEventListener('click', resetInactivity);
+  document.addEventListener('keydown', resetInactivity);
+}
+
+function lockApp(reason) {
+  document.removeEventListener('click', resetInactivity);
+  document.removeEventListener('keydown', resetInactivity);
+  clearTimeout(inactivityTimer);
+  sessionKey = null;
+  state = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('lockScreen').style.display = 'flex';
+  const msg = document.getElementById('lockMessage');
+  if (reason) { msg.textContent = reason; msg.style.display = 'block'; }
+  else { msg.style.display = 'none'; }
+}
+
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  const mins = (state && state.settings && state.settings.lock_minutes) ? state.settings.lock_minutes : 30;
+  inactivityTimer = setTimeout(() => lockApp('Logged out due to inactivity. Please enter your password to continue.'), mins * 60 * 1000);
+}
+
+document.getElementById('passwordInput').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+function initApp() {
+  updateTopbarDate();
+  setInterval(updateTopbarDate, 60000);
+  renderTable();
+  renderSettings();
+  renderDirectory();
+  checkExportReminder();
+  updateDailyBadge();
+  // Load api key into settings field
+  if (state.settings.api_key) document.getElementById('apiKeyInput').value = state.settings.api_key;
+  document.getElementById('lockMinutes').value = state.settings.lock_minutes || 30;
+}
+
+function updateTopbarDate() {
+  const now = new Date();
+  document.getElementById('topbarDate').textContent = now.toLocaleDateString('en-CA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+
+// ════════════════════════════════════════
+//  VOICE
+// ════════════════════════════════════════
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+    return;
+  }
+  if (isRecording) { stopMic(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-CA';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+
+  const target = document.getElementById('followupArea').style.display !== 'none'
+    ? document.getElementById('followupInput')
+    : document.getElementById('noteInput');
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('micBtn').textContent = '⏹';
+    document.getElementById('voiceStatus').textContent = 'Listening…';
+    document.getElementById('voiceStatus').classList.add('active');
+  };
+  recognition.onresult = e => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    target.value = transcript;
+  };
+  recognition.onend = () => {
+    stopMic();
+    if (target === document.getElementById('followupInput')) {
+      answerFollowup();
+    } else {
+      if (target.value.trim()) submitNote();
+    }
+  };
+  recognition.onerror = () => stopMic();
+  recognition.start();
+}
+
+function stopMic() {
+  isRecording = false;
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('micBtn').textContent = '🎙';
+  document.getElementById('voiceStatus').textContent = 'Tap mic to dictate';
+  document.getElementById('voiceStatus').classList.remove('active');
+}
+
+// ════════════════════════════════════════
+//  NOTE SUBMISSION & AI PARSING
+// ════════════════════════════════════════
+async function submitNote() {
+  const note = document.getElementById('noteInput').value.trim();
+  if (!note) return;
+  setSubmitLoading(true);
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-CA');
+  const timeStr = now.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+
+  const customFieldsList = state.settings.custom_fields.join(', ');
+  const prompt = `You are a medical billing assistant for a family doctor in British Columbia, Canada. Parse the following appointment note into structured JSON.
+
+Note: "${note}"
+Today: ${dateStr} at ${timeStr}
+
+Return ONLY valid JSON with exactly these fields:
+{
+  "patient_name": "full name, properly capitalized",
+  "duration": "duration as string e.g. '20 min', empty string if not mentioned",
+  "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
+  "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
+  "reason": "chief complaint or reason for visit, concise",
+  "diagnosis_code": "ICD-10 code if clearly stated, otherwise empty string",
+  "billing_code": "MSP billing code if mentioned, otherwise empty string",
+  "fee": "fee amount as number if mentioned, otherwise empty string",
+  "referred_by": "referring doctor if mentioned, otherwise empty string",
+  "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
+  "notes": "any other relevant clinical notes",
+  "missing_fields": ["list of important fields that are missing or unclear and should be asked about — choose from: patient_name, duration, appointment_type, reason, PHN. Only list genuinely missing ones."]${customFieldsList ? `,\n  "custom": {${state.settings.custom_fields.map(f => `"${f}": ""`).join(', ')}}` : ''}
+}`;
+
+  try {
+    const apiKey = state.settings.api_key;
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 600, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await resp.json();
+    const text = data.content.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    pendingEntry = {
+      patient_name: parsed.patient_name || '',
+      date: dateStr,
+      time: timeStr,
+      duration: parsed.duration || '',
+      appointment_type: parsed.appointment_type || '',
+      ltc_facility: parsed.ltc_facility || '',
+      reason: parsed.reason || '',
+      diagnosis_code: parsed.diagnosis_code || '',
+      billing_code: parsed.billing_code || '',
+      fee: parsed.fee || '',
+      phn: '',
+      dob: '',
+      gender: '',
+      phone: '',
+      referred_by: parsed.referred_by || '',
+      follow_up: parsed.follow_up || '',
+      notes: parsed.notes || '',
+      claimed: false,
+      claim_status: '',
+      image_b64: null,
+      custom: parsed.custom || {}
+    };
+
+    // Pre-fill from patient record
+    const nameKey = pendingEntry.patient_name.toLowerCase().trim();
+    if (state.patients[nameKey]) {
+      const p = state.patients[nameKey];
+      pendingEntry.phn = p.phn || '';
+      pendingEntry.dob = p.dob || '';
+      pendingEntry.gender = p.gender || '';
+      pendingEntry.phone = p.phone || '';
+    }
+
+    // Start follow-up queue for missing fields
+    followupAnswers = {};
+    followupQueue = [];
+
+    const missing = parsed.missing_fields || [];
+    // Check if patient is new and PHN not in record
+    if (!state.patients[nameKey] || !state.patients[nameKey].phn) {
+      if (!missing.includes('PHN')) missing.push('PHN');
+    }
+    missing.forEach(field => {
+      const q = followupQuestionFor(field);
+      if (q) followupQueue.push({ field, question: q });
+    });
+
+    setSubmitLoading(false);
+    if (followupQueue.length > 0) {
+      showNextFollowup();
+    } else {
+      showPreview();
+    }
+  } catch(e) {
+    setSubmitLoading(false);
+    alert('Could not parse the note. Please check your API key in Settings, or try again.');
+    console.error(e);
+  }
+}
+
+function followupQuestionFor(field) {
+  const map = {
+    'patient_name': 'What is the patient\'s full name?',
+    'duration': 'How long was the appointment?',
+    'appointment_type': `What type of appointment was this? (${state.settings.appt_types.join(', ')})`,
+    'reason': 'What was the reason for the visit?',
+    'PHN': `${pendingEntry && !state.patients[(pendingEntry.patient_name||'').toLowerCase().trim()] ? 'New patient — ' : ''}What is the patient\'s provincial health number (PHN)?`
+  };
+  return map[field] || null;
+}
+
+function showNextFollowup() {
+  if (followupQueue.length === 0) { showPreview(); return; }
+  const { question } = followupQueue[0];
+  document.getElementById('followupArea').style.display = 'block';
+  document.getElementById('previewArea').style.display = 'none';
+  document.getElementById('followupQuestion').textContent = question;
+  document.getElementById('followupInput').value = '';
+  document.getElementById('followupInput').focus();
+}
+
+function answerFollowup() {
+  const answer = document.getElementById('followupInput').value.trim();
+  if (!answer) return;
+  const { field } = followupQueue.shift();
+  applyFollowupAnswer(field, answer);
+  if (followupQueue.length > 0) {
+    showNextFollowup();
+  } else {
+    document.getElementById('followupArea').style.display = 'none';
+    showPreview();
+  }
+}
+
+function applyFollowupAnswer(field, answer) {
+  if (field === 'PHN') pendingEntry.phn = answer;
+  else if (field === 'patient_name') pendingEntry.patient_name = answer;
+  else if (field === 'duration') pendingEntry.duration = answer;
+  else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
+  else if (field === 'reason') pendingEntry.reason = answer;
+}
+
+function showPreview() {
+  document.getElementById('followupArea').style.display = 'none';
+  document.getElementById('previewArea').style.display = 'block';
+
+  const nameKey = (pendingEntry.patient_name || '').toLowerCase().trim();
+  const isNew = !state.patients[nameKey];
+  const visitCount = state.patients[nameKey] ? (state.patients[nameKey].visits || 0) : 0;
+  const badge = document.getElementById('patientBadge');
+  badge.className = 'patient-badge ' + (isNew ? 'badge-new' : 'badge-returning');
+  badge.textContent = isNew ? 'New patient' : `Returning · ${visitCount} prior visit${visitCount !== 1 ? 's' : ''}`;
+
+  const ltcVisible = pendingEntry.appointment_type === 'LTC visit';
+
+  const fields = [
+    { key: 'patient_name', label: 'Patient name', type: 'text', full: false },
+    { key: 'date', label: 'Date', type: 'text', full: false },
+    { key: 'time', label: 'Time', type: 'text', full: false },
+    { key: 'duration', label: 'Duration', type: 'text', full: false },
+    { key: 'appointment_type', label: 'Appointment type', type: 'select', options: state.settings.appt_types, full: false },
+    { key: 'ltc_facility', label: 'LTC facility', type: 'select', options: state.settings.ltc_facilities, full: false, hidden: !ltcVisible },
+    { key: 'reason', label: 'Reason for visit', type: 'text', full: false },
+    { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
+    { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
+    { key: 'fee', label: 'Fee ($)', type: 'text', full: false },
+    { key: 'diagnosis_code', label: 'Diagnosis code (ICD-10)', type: 'text', full: false },
+    { key: 'follow_up', label: 'Follow-up', type: 'text', full: false },
+    { key: 'notes', label: 'Notes', type: 'text', full: true },
+  ];
+
+  // Add custom fields
+  state.settings.custom_fields.forEach(cf => {
+    fields.push({ key: 'custom_' + cf, label: cf, type: 'text', full: false, isCustom: true, customKey: cf });
+  });
+
+  const grid = document.getElementById('previewGrid');
+  grid.innerHTML = '';
+  fields.forEach(f => {
+    if (f.hidden) return;
+    const div = document.createElement('div');
+    div.className = 'preview-field' + (f.full ? ' full' : '');
+    div.innerHTML = `<div class="pf-label">${f.label}</div>`;
+    if (f.type === 'select') {
+      const val = f.isCustom ? (pendingEntry.custom[f.customKey] || '') : (pendingEntry[f.key] || '');
+      const sel = document.createElement('select');
+      sel.className = 'pf-select';
+      sel.dataset.key = f.key;
+      if (f.isCustom) sel.dataset.customKey = f.customKey;
+      f.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        if (o === val) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', () => {
+        if (f.isCustom) pendingEntry.custom[f.customKey] = sel.value;
+        else {
+          pendingEntry[f.key] = sel.value;
+          if (f.key === 'appointment_type') showPreview(); // re-render for LTC visibility
+        }
+      });
+      div.appendChild(sel);
+    } else {
+      const val = f.isCustom ? (pendingEntry.custom[f.customKey] || '') : (pendingEntry[f.key] || '');
+      const inp = document.createElement('input');
+      inp.className = 'pf-input'; inp.type = 'text'; inp.value = val;
+      inp.dataset.key = f.key;
+      if (f.isCustom) inp.dataset.customKey = f.customKey;
+      inp.addEventListener('input', () => {
+        if (f.isCustom) pendingEntry.custom[f.customKey] = inp.value;
+        else pendingEntry[f.key] = inp.value;
+      });
+      div.appendChild(inp);
+    }
+    grid.appendChild(div);
+  });
+
+  // Image preview
+  const imgWrap = document.getElementById('previewImgWrap');
+  if (pendingImageB64) {
+    imgWrap.style.display = 'block';
+    imgWrap.innerHTML = `<img src="${pendingImageB64}" style="max-height:80px;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openLightbox('${pendingImageB64}')" />`;
+  } else {
+    imgWrap.style.display = 'none';
+  }
+}
+
+function attachImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pendingImageB64 = ev.target.result;
+    showPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function confirmAppointment() {
+  if (!pendingEntry) return;
+  // Sync any manual edits from preview inputs
+  document.querySelectorAll('#previewGrid .pf-input, #previewGrid .pf-select').forEach(el => {
+    const key = el.dataset.key;
+    const ck = el.dataset.customKey;
+    if (ck) pendingEntry.custom[ck] = el.value;
+    else if (key) pendingEntry[key] = el.value;
+  });
+
+  pendingEntry.image_b64 = pendingImageB64 || null;
+
+  // Update patient record
+  const nameKey = pendingEntry.patient_name.toLowerCase().trim();
+  if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
+  const p = state.patients[nameKey];
+  if (pendingEntry.phn) p.phn = pendingEntry.phn;
+  if (pendingEntry.dob) p.dob = pendingEntry.dob;
+  if (pendingEntry.gender) p.gender = pendingEntry.gender;
+  if (pendingEntry.phone) p.phone = pendingEntry.phone;
+  p.visits = (p.visits || 0) + 1;
+  p.last_seen = pendingEntry.date;
+
+  state.log.unshift({ ...pendingEntry, total_visits: p.visits });
+
+  pendingEntry = null;
+  pendingImageB64 = null;
+  document.getElementById('noteInput').value = '';
+  document.getElementById('previewArea').style.display = 'none';
+  document.getElementById('followupArea').style.display = 'none';
+
+  await saveState();
+  renderTable();
+  renderDirectory();
+  updateDailyBadge();
+}
+
+function cancelPreview() {
+  pendingEntry = null;
+  pendingImageB64 = null;
+  document.getElementById('previewArea').style.display = 'none';
+  document.getElementById('followupArea').style.display = 'none';
+  document.getElementById('noteInput').value = '';
+}
+
+function setSubmitLoading(on) {
+  const btn = document.getElementById('submitBtn');
+  const label = document.getElementById('submitLabel');
+  btn.disabled = on;
+  label.innerHTML = on ? '<span class="spinner"></span>' : 'Log it';
+}
+
+// ════════════════════════════════════════
+//  TABLE RENDERING
+// ════════════════════════════════════════
+function getColumns() {
+  const base = ['#','Patient','Date','Time','Duration','Type','Reason','PHN','Billing code','Fee','Diagnosis','Follow-up','Claimed','Visits','Image'];
+  return base.concat(state.settings.custom_fields);
+}
+
+function renderTable() {
+  const cols = getColumns();
+  const head = document.getElementById('tableHead');
+  head.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+
+  const body = document.getElementById('tableBody');
+  document.getElementById('rowCountBadge').textContent = state.log.length;
+  if (state.log.length === 0) {
+    body.innerHTML = `<tr><td colspan="${cols.length}" class="empty-log">No appointments logged yet. Dictate or type your first one above.</td></tr>`;
+    return;
+  }
+  body.innerHTML = state.log.map((r, i) => {
+    const img = r.image_b64 ? `<div class="td-thumb"><img src="${r.image_b64}" onclick="event.stopPropagation();openLightbox('${r.image_b64}')" /></div>` : '—';
+    const customCells = (state.settings.custom_fields || []).map(cf => `<td class="td-muted">${esc(r.custom ? r.custom[cf] : '')}</td>`).join('');
+    return `<tr onclick="openEdit(${i})">
+      <td class="td-muted">${state.log.length - i}</td>
+      <td class="td-name">${esc(r.patient_name)}</td>
+      <td>${esc(r.date)}</td>
+      <td class="td-muted">${esc(r.time)}</td>
+      <td>${esc(r.duration)}</td>
+      <td>${esc(r.appointment_type)}${r.ltc_facility ? '<br><span style="font-size:10px;color:var(--text-light)">'+esc(r.ltc_facility)+'</span>' : ''}</td>
+      <td>${esc(r.reason)}</td>
+      <td class="td-muted">${esc(r.phn)}</td>
+      <td>${esc(r.billing_code)}</td>
+      <td>${r.fee ? '$'+esc(r.fee) : dash()}</td>
+      <td class="td-muted">${esc(r.diagnosis_code)}</td>
+      <td class="td-muted">${esc(r.follow_up)}</td>
+      <td style="text-align:center">${r.claimed ? '<span class="claimed-check">✓</span>' : dash()}</td>
+      <td style="text-align:center"><span class="visits-pill">${r.total_visits || 1}</span></td>
+      <td>${img}</td>
+      ${customCells}
+    </tr>`;
+  }).join('');
+}
+
+function dash() { return '<span style="color:var(--text-light)">—</span>'; }
+function esc(s) { if (!s) return '<span style="color:var(--text-light)">—</span>'; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateDailyBadge() {
+  const today = new Date().toLocaleDateString('en-CA');
+  const count = state.log.filter(r => r.date === today).length;
+  document.getElementById('dailyBadge').textContent = `${count} today`;
+}
+
+// ════════════════════════════════════════
+//  EDIT MODAL
+// ════════════════════════════════════════
+function openEdit(index) {
+  editingIndex = index;
+  const r = state.log[index];
+  const grid = document.getElementById('editModalGrid');
+
+  const fields = [
+    { key: 'patient_name', label: 'Patient name', type: 'text' },
+    { key: 'date', label: 'Date', type: 'text' },
+    { key: 'time', label: 'Time', type: 'text' },
+    { key: 'duration', label: 'Duration', type: 'text' },
+    { key: 'appointment_type', label: 'Type', type: 'select', options: state.settings.appt_types },
+    { key: 'ltc_facility', label: 'LTC facility', type: 'select', options: [''].concat(state.settings.ltc_facilities) },
+    { key: 'reason', label: 'Reason', type: 'text' },
+    { key: 'phn', label: 'PHN', type: 'text' },
+    { key: 'dob', label: 'Date of birth', type: 'text' },
+    { key: 'gender', label: 'Gender', type: 'text' },
+    { key: 'phone', label: 'Phone', type: 'text' },
+    { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes) },
+    { key: 'fee', label: 'Fee ($)', type: 'text' },
+    { key: 'diagnosis_code', label: 'Diagnosis code', type: 'text' },
+    { key: 'referred_by', label: 'Referred by', type: 'text' },
+    { key: 'follow_up', label: 'Follow-up', type: 'text' },
+    { key: 'claim_status', label: 'Claim status', type: 'select', options: ['','Pending','Accepted','Rejected'] },
+    { key: 'notes', label: 'Notes', type: 'textarea', full: true },
+  ];
+
+  state.settings.custom_fields.forEach(cf => {
+    fields.push({ key: 'custom_' + cf, label: cf, type: 'text', isCustom: true, customKey: cf });
+  });
+
+  grid.innerHTML = '';
+  fields.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'modal-field' + (f.full ? ' full' : '');
+    div.innerHTML = `<label>${f.label}</label>`;
+    const val = f.isCustom ? (r.custom ? r.custom[f.customKey] : '') : (r[f.key] || '');
+    if (f.type === 'select') {
+      const sel = document.createElement('select');
+      sel.dataset.key = f.key;
+      if (f.isCustom) sel.dataset.customKey = f.customKey;
+      f.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o || '—';
+        if (o === val) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      div.appendChild(sel);
+    } else if (f.type === 'textarea') {
+      const ta = document.createElement('textarea');
+      ta.dataset.key = f.key; ta.value = val || ''; ta.rows = 3;
+      div.appendChild(ta);
+    } else {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.dataset.key = f.key; inp.value = val || '';
+      if (f.isCustom) inp.dataset.customKey = f.customKey;
+      div.appendChild(inp);
+    }
+    grid.appendChild(div);
+  });
+
+  // Claimed checkbox
+  const claimedDiv = document.createElement('div');
+  claimedDiv.className = 'modal-field';
+  claimedDiv.innerHTML = `<label>Claimed</label><label style="display:flex;align-items:center;gap:6px;margin-top:4px"><input type="checkbox" id="editClaimed" ${r.claimed ? 'checked' : ''} /> Yes, submitted to MSP</label>`;
+  grid.appendChild(claimedDiv);
+
+  // Image
+  const imgDiv = document.getElementById('editModalImg');
+  imgDiv.innerHTML = '';
+  if (r.image_b64) {
+    imgDiv.innerHTML = `<img src="${r.image_b64}" class="modal-img" onclick="openLightbox('${r.image_b64}')" style="max-height:100px" /><br>`;
+  }
+  const fileLabel = document.createElement('label');
+  fileLabel.style.cssText = 'display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:5px 10px;margin-top:6px;background:var(--warm-white)';
+  fileLabel.innerHTML = '📎 Replace image <input type="file" accept="image/*" style="display:none" />';
+  fileLabel.querySelector('input').addEventListener('change', e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      state.log[editingIndex].image_b64 = ev.target.result;
+      imgDiv.innerHTML = `<img src="${ev.target.result}" class="modal-img" onclick="openLightbox('${ev.target.result}')" style="max-height:100px" /><br>`;
+      imgDiv.appendChild(fileLabel);
+    };
+    reader.readAsDataURL(file);
+  });
+  imgDiv.appendChild(fileLabel);
+
+  document.getElementById('editModal').classList.add('open');
+}
+
+async function saveEdit() {
+  const r = state.log[editingIndex];
+  document.querySelectorAll('#editModalGrid input[data-key], #editModalGrid select[data-key], #editModalGrid textarea[data-key]').forEach(el => {
+    const key = el.dataset.key;
+    const ck = el.dataset.customKey;
+    if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
+    else if (key) r[key] = el.value;
+  });
+  const claimedEl = document.getElementById('editClaimed');
+  if (claimedEl) r.claimed = claimedEl.checked;
+
+  // Update patient record
+  const nameKey = (r.patient_name || '').toLowerCase().trim();
+  if (state.patients[nameKey]) {
+    if (r.phn) state.patients[nameKey].phn = r.phn;
+    if (r.dob) state.patients[nameKey].dob = r.dob;
+    if (r.gender) state.patients[nameKey].gender = r.gender;
+    if (r.phone) state.patients[nameKey].phone = r.phone;
+  }
+
+  await saveState();
+  renderTable();
+  renderDirectory();
+  closeModal();
+}
+
+async function deleteAppointment() {
+  if (!confirm('Delete this appointment? This cannot be undone.')) return;
+  state.log.splice(editingIndex, 1);
+  await saveState();
+  renderTable();
+  updateDailyBadge();
+  closeModal();
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+  editingIndex = null;
+}
+
+// ════════════════════════════════════════
+//  DIRECTORY
+// ════════════════════════════════════════
+function renderDirectory() {
+  const q = (document.getElementById('dirSearch').value || '').toLowerCase();
+  const list = document.getElementById('patientList');
+  const names = Object.keys(state.patients).filter(n => !q || n.includes(q)).sort();
+  if (names.length === 0) {
+    list.innerHTML = '<p style="font-size:13px;color:var(--text-light)">No patients yet.</p>';
+    return;
+  }
+  list.innerHTML = names.map(nameKey => {
+    const p = state.patients[nameKey];
+    const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+    return `<div class="patient-card" onclick="openPatientEditor('${nameKey}')">
+      <div class="patient-card-name">${displayName}</div>
+      <div class="patient-card-meta">
+        <span>PHN: ${p.phn || '—'}</span>
+        <span>DOB: ${p.dob || '—'}</span>
+        <span>${p.visits || 0} visit${p.visits !== 1 ? 's' : ''}</span>
+        <span>Last seen: ${p.last_seen || '—'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPatientEditor(nameKey) {
+  const p = state.patients[nameKey];
+  const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  const ed = document.getElementById('patientEditor');
+  ed.style.display = 'block';
+  ed.innerHTML = `
+    <div style="font-weight:500;margin-bottom:0.75rem;font-size:14px">${displayName}</div>
+    <div class="editor-grid">
+      <div class="editor-field"><label>PHN</label><input type="text" id="ep-phn" value="${p.phn || ''}" /></div>
+      <div class="editor-field"><label>Date of birth</label><input type="text" id="ep-dob" value="${p.dob || ''}" placeholder="YYYY-MM-DD" /></div>
+      <div class="editor-field"><label>Gender</label><input type="text" id="ep-gender" value="${p.gender || ''}" /></div>
+      <div class="editor-field"><label>Phone</label><input type="text" id="ep-phone" value="${p.phone || ''}" /></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn-primary" onclick="savePatientEditor('${nameKey}')">Save</button>
+      <button onclick="closePatientEditor()">Cancel</button>
+    </div>
+  `;
+  ed.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function savePatientEditor(nameKey) {
+  state.patients[nameKey].phn = document.getElementById('ep-phn').value;
+  state.patients[nameKey].dob = document.getElementById('ep-dob').value;
+  state.patients[nameKey].gender = document.getElementById('ep-gender').value;
+  state.patients[nameKey].phone = document.getElementById('ep-phone').value;
+  await saveState();
+  closePatientEditor();
+  renderDirectory();
+}
+
+function closePatientEditor() {
+  const ed = document.getElementById('patientEditor');
+  ed.style.display = 'none';
+  ed.innerHTML = '';
+}
+
+// ════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════
+function renderSettings() {
+  renderTagList('apptType', state.settings.appt_types);
+  renderTagList('ltcFacility', state.settings.ltc_facilities);
+  renderTagList('billingCode', state.settings.billing_codes);
+  renderTagList('customField', state.settings.custom_fields);
+}
+
+function renderTagList(type, items) {
+  const el = document.getElementById(type + 'List');
+  el.innerHTML = items.map((item, i) =>
+    `<span class="tag">${item}<span class="tag-remove" onclick="removeTag('${type}',${i})">×</span></span>`
+  ).join('');
+}
+
+async function addTag(type) {
+  const input = document.getElementById('new' + type.charAt(0).toUpperCase() + type.slice(1));
+  const val = input.value.trim();
+  if (!val) return;
+  const keyMap = { apptType: 'appt_types', ltcFacility: 'ltc_facilities', billingCode: 'billing_codes', customField: 'custom_fields' };
+  state.settings[keyMap[type]].push(val);
+  input.value = '';
+  renderTagList(type, state.settings[keyMap[type]]);
+  await saveState();
+}
+
+async function removeTag(type, index) {
+  const keyMap = { apptType: 'appt_types', ltcFacility: 'ltc_facilities', billingCode: 'billing_codes', customField: 'custom_fields' };
+  state.settings[keyMap[type]].splice(index, 1);
+  renderTagList(type, state.settings[keyMap[type]]);
+  await saveState();
+}
+
+async function changePassword() {
+  const oldPass = document.getElementById('oldPass').value;
+  const newPass = document.getElementById('newPass').value;
+  const confirmPass = document.getElementById('confirmPass').value;
+  const msg = document.getElementById('passMsg');
+
+  if (newPass !== confirmPass) { showPassMsg('Passwords do not match.', 'danger'); return; }
+  if (newPass.length < 6) { showPassMsg('Password must be at least 6 characters.', 'danger'); return; }
+
+  // Verify old password
+  const oldHash = await hashPassword(oldPass);
+  if (oldHash !== state.password_hash) { showPassMsg('Current password is incorrect.', 'danger'); return; }
+
+  const newKey = await deriveKey(newPass);
+  const newHash = await hashPassword(newPass);
+  state.password_hash = newHash;
+  sessionKey = newKey;
+  await saveState();
+  document.getElementById('oldPass').value = '';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+  showPassMsg('Password updated successfully.', 'success');
+}
+
+function showPassMsg(text, type) {
+  const el = document.getElementById('passMsg');
+  el.textContent = text;
+  el.style.color = type === 'danger' ? 'var(--danger)' : 'var(--sage-dark)';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) return;
+  state.settings.api_key = key;
+  await saveState();
+  const msg = document.getElementById('apiKeyMsg');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 2000);
+}
+
+async function saveLockMinutes() {
+  const mins = parseInt(document.getElementById('lockMinutes').value) || 30;
+  state.settings.lock_minutes = mins;
+  await saveState();
+  resetInactivity();
+}
+document.getElementById('lockMinutes').addEventListener('change', saveLockMinutes);
+
+function confirmClearData() {
+  if (confirm('This will permanently delete ALL appointments and patient records. This cannot be undone. Are you sure?')) {
+    if (confirm('Are you absolutely sure? All data will be lost.')) {
+      localStorage.removeItem(STORAGE_KEY);
+      lockApp();
+    }
+  }
+}
+
+// ════════════════════════════════════════
+//  AI CHAT
+// ════════════════════════════════════════
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  appendChatMsg('user', msg);
+
+  const summary = JSON.stringify({
+    total_appointments: state.log.length,
+    total_patients: Object.keys(state.patients).length,
+    appointments: state.log.map(r => ({
+      date: r.date, time: r.time, patient: r.patient_name,
+      duration: r.duration, type: r.appointment_type,
+      ltc_facility: r.ltc_facility, reason: r.reason,
+      billing_code: r.billing_code, fee: r.fee,
+      phn: r.phn, claimed: r.claimed, claim_status: r.claim_status,
+      follow_up: r.follow_up
+    }))
+  });
+
+  const prompt = `You are a helpful medical billing assistant for a family doctor in BC, Canada. You have access to all their appointment records. Answer the doctor's question clearly and concisely, like a knowledgeable MOA would. Use plain language.
+
+Records: ${summary}
+
+Doctor's question: ${msg}`;
+
+  const typingEl = appendChatMsg('assistant', '…');
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': state.settings.api_key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await resp.json();
+    const text = data.content.map(c => c.text || '').join('');
+    typingEl.querySelector('.chat-bubble').textContent = text;
+  } catch(e) {
+    typingEl.querySelector('.chat-bubble').textContent = 'Sorry, I could not connect. Please check your API key in Settings.';
+  }
+
+  const container = document.getElementById('chatMessages');
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendChatMsg(role, text) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  div.innerHTML = `<div class="chat-bubble">${text}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+// ════════════════════════════════════════
+//  EXPORT
+// ════════════════════════════════════════
+async function exportCSV() {
+  if (state.log.length === 0) { alert('No appointments to export yet.'); return; }
+  const customFields = state.settings.custom_fields || [];
+  const headers = ['Date','Time','Patient name','PHN','DOB','Gender','Phone','Duration','Appointment type','LTC facility','Reason','Diagnosis code','Billing code','Fee','Referred by','Follow-up','Claimed','Claim status','Notes','Total visits'].concat(customFields);
+  const rows = state.log.map(r => [
+    r.date, r.time, r.patient_name, r.phn, r.dob, r.gender, r.phone,
+    r.duration, r.appointment_type, r.ltc_facility, r.reason,
+    r.diagnosis_code, r.billing_code, r.fee, r.referred_by, r.follow_up,
+    r.claimed ? 'Yes' : 'No', r.claim_status, r.notes, r.total_visits || 1
+  ].concat(customFields.map(cf => r.custom ? r.custom[cf] : '')));
+
+  const csv = [headers, ...rows].map(row => row.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toLocaleDateString('en-CA').replace(/\//g, '-');
+  a.href = url; a.download = `billing_log_${date}.csv`; a.click();
+  URL.revokeObjectURL(url);
+
+  state.last_export = Date.now();
+  await saveState();
+  checkExportReminder();
+}
+
+function checkExportReminder() {
+  const el = document.getElementById('exportReminder');
+  if (!state.last_export) { el.style.display = 'none'; return; }
+  const daysSince = (Date.now() - state.last_export) / (1000 * 60 * 60 * 24);
+  if (daysSince >= 2 && state.log.length > 0) {
+    const days = Math.floor(daysSince);
+    document.getElementById('exportReminderText').textContent = `${days} day${days !== 1 ? 's' : ''} since last export.`;
+    el.style.display = 'flex';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.panel-tab').forEach((btn, i) => {
+    const tabs = ['chat','directory','settings'];
+    btn.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.toggle('active', el.id === 'tab-' + tab);
+  });
+  if (tab === 'directory') renderDirectory();
+  if (tab === 'settings') renderSettings();
+}
+
+// ════════════════════════════════════════
+//  LIGHTBOX
+// ════════════════════════════════════════
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+</script>
+</body>
+</html>
