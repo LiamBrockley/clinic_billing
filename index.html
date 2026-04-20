@@ -378,7 +378,7 @@
             <button class="mic-btn btn-icon" id="micBtn" onclick="toggleMic()" title="Toggle microphone">🎙</button>
             <span class="voice-status" id="voiceStatus">Tap mic to dictate</span>
             <button class="btn-primary submit-btn" id="submitBtn" onclick="submitNote()">
-              <span id="submitLabel">Log it</span>
+              <span id="submitLabel">→</span>
             </button>
           </div>
         </div>
@@ -714,6 +714,7 @@ function unlockApp() {
   document.getElementById('lockMessage').style.display = 'none';
   document.getElementById('passwordInput').value = '';
   initApp();
+  initMic();
   resetInactivity();
   document.addEventListener('click', resetInactivity);
   document.addEventListener('keydown', resetInactivity);
@@ -764,12 +765,34 @@ function updateTopbarDate() {
 // ════════════════════════════════════════
 //  VOICE
 // ════════════════════════════════════════
+async function initMic() {
+  // Pre-request mic permission so voice works immediately on first tap
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+  } catch(e) {
+    console.warn('Mic permission not granted:', e);
+  }
+}
+
 function toggleMic() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
     return;
   }
-  if (isRecording) { stopMic(); return; }
+  if (isRecording) {
+    // Stop = submit
+    const wasFollowup = document.getElementById('followupArea').style.display !== 'none';
+    stopMic();
+    if (wasFollowup) {
+      const val = document.getElementById('followupInput').value.trim();
+      if (followupQueue.length > 0 && val) answerFollowup();
+    } else {
+      const val = document.getElementById('noteInput').value.trim();
+      if (val) submitNote();
+    }
+    return;
+  }
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
@@ -785,7 +808,7 @@ function toggleMic() {
     isRecording = true;
     document.getElementById('micBtn').classList.add('recording');
     document.getElementById('micBtn').textContent = '⏹';
-    document.getElementById('voiceStatus').textContent = 'Listening — tap ⏹ to stop';
+    document.getElementById('voiceStatus').textContent = 'Listening — tap ⏹ to stop & log';
     document.getElementById('voiceStatus').classList.add('active');
   };
   recognition.onresult = e => {
@@ -793,10 +816,12 @@ function toggleMic() {
     target.value = transcript;
   };
   recognition.onend = () => {
-    // Only fires when user explicitly stopped — do nothing, let them review and submit manually
     stopMic();
   };
-  recognition.onerror = () => stopMic();
+  recognition.onerror = (e) => {
+    console.warn('Speech error:', e.error);
+    stopMic();
+  };
   recognition.start();
 }
 
@@ -830,10 +855,10 @@ Today: ${dateStr} at ${timeStr}
 Return ONLY valid JSON with exactly these fields:
 {
   "patient_name": "full name, properly capitalized",
-  "duration": "duration as string e.g. '20 min', empty string if not mentioned",
+  "duration": "appointment duration as an integer number of MINUTES ONLY — no units, just the number. Convert hours to minutes (1 hour=60, 1.5 hours=90, 2 hours=120). e.g. '20 min' → 20, 'half an hour' → 30, 'an hour' → 60. Empty string if not mentioned.",
   "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
-  "reason": "chief complaint or reason for visit — extract the medical condition only, 1-5 words, e.g. 'foot fungus' not 'she visited because she has foot fungus'",
+  "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
   "diagnosis_code": "ICD-10 code if clearly stated, otherwise empty string",
   "billing_code": "MSP billing code if mentioned, otherwise empty string",
   "fee": "fee amount as number if mentioned, otherwise empty string",
@@ -1136,7 +1161,7 @@ function setSubmitLoading(on) {
 //  TABLE RENDERING
 // ════════════════════════════════════════
 function getColumns() {
-  const base = ['#','Patient','Date','Time','Duration','Type','Reason','PHN','Billing code','Fee','Diagnosis','Follow-up','Claimed','Visits','Image'];
+  const base = ['#','Patient','Date','Time','Dur (mins)','Type','Reason','PHN','Billing code','Fee','Diagnosis','Follow-up','Claimed','Visits','Image'];
   return base.concat(state.settings.custom_fields);
 }
 
