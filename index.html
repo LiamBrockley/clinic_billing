@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.4</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.6</div>
   </div>
 </div>
 
@@ -844,6 +844,16 @@ function convertTo24Hour(timeStr) {
   return String(hours).padStart(2, '0') + ':' + minutes;
 }
 
+async function migrateSettings() {
+  let changed = false;
+  // Migrate icd_codes if missing or empty
+  if (!state.settings.icd_codes || state.settings.icd_codes.length === 0) {
+    state.settings.icd_codes = DEFAULT_STATE.settings.icd_codes.slice();
+    changed = true;
+  }
+  if (changed) await saveState();
+}
+
 async function migrateTimeTo24Hour() {
   let changed = false;
   state.log.forEach(r => {
@@ -853,9 +863,10 @@ async function migrateTimeTo24Hour() {
   if (changed) await saveState();
 }
 
-function initApp() {
+async function initApp() {
   updateTopbarDate();
   setInterval(updateTopbarDate, 60000);
+  await migrateSettings();
   migrateTimeTo24Hour();
   renderTable();
   renderSettings();
@@ -1051,13 +1062,18 @@ function inferBillingCode(reason, notes, rawNote) {
                    : code.includes('-') ? code.split('-').slice(1).join('-').trim().toLowerCase()
                    : code.toLowerCase();
 
-    const descWords = descPart.split(/\s+/).filter(w => w.length > 3);
+    const descWords = descPart.split(/[\s]+/).filter(w => w.length > 3);
     if (!descWords.length) return;
 
     const matchCount = descWords.filter(w => haystack.includes(w)).length;
-    const score = matchCount / descWords.length; // proportion of desc words found
+    const ratio = matchCount / descWords.length;
 
-    if (score > bestScore && score >= 0.5) { // at least 50% of description words must match
+    // Score = ratio of matched words × number of matched words
+    // This rewards longer, more specific descriptions that match fully
+    // over short descriptions that match by coincidence
+    const score = ratio * matchCount;
+
+    if (score > bestScore && ratio >= 0.5) {
       bestScore = score;
       bestMatch = code;
     }
