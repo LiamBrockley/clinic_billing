@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.0</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.1</div>
   </div>
 </div>
 
@@ -1364,8 +1364,24 @@ function setSubmitLoading(on) {
 //  TABLE RENDERING
 // ════════════════════════════════════════
 function getColumns() {
-  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','Billing code','Claim status','Visits'];
+  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','Billing code','Claim status','Visit'];
   return base.concat(state.settings.custom_fields);
+}
+
+// Returns which visit number this entry is for this patient (chronological)
+function getVisitNumber(entry, logIndex) {
+  const nameKey = (entry.patient_name || '').toLowerCase().trim();
+  // Get all entries for this patient sorted chronologically
+  const patientEntries = state.log
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => (r.patient_name || '').toLowerCase().trim() === nameKey)
+    .sort((a, b) => {
+      const da = new Date((a.r.date || '') + 'T' + (a.r.time || '00:00'));
+      const db = new Date((b.r.date || '') + 'T' + (b.r.time || '00:00'));
+      return da - db;
+    });
+  const visitNum = patientEntries.findIndex(({ i }) => i === logIndex) + 1;
+  return visitNum || 1;
 }
 
 // Maps column label to the field key used for sorting
@@ -1374,7 +1390,7 @@ const COL_KEYS = {
   'Patient': 'patient_name',
   'Type': 'appointment_type', 'Reason': 'reason',
   'Billing code': 'billing_code',
-  'Visits': 'total_visits'
+  'Visit': 'total_visits'
 };
 // Time column sorts by full date+time chronologically
 const CHRON_COL = 'Time';
@@ -1506,7 +1522,10 @@ function renderTable() {
       return `<th${cls} onclick="sortByChron()" title="Sort by date &amp; time">${c}${arrow}</th>`;
     }
     if (c === 'Date') {
-      return `<th>${c}</th>`;
+      const isActive = sortCol === 'chron';
+      const arrow = isActive ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
+      const cls = isActive ? ' class="sort-active"' : '';
+      return `<th${cls} onclick="sortByChron()" title="Sort by date &amp; time">${c}${arrow}</th>`;
     }
     const isActive = sortCol && COL_KEYS[c] === sortCol;
     const arrow = isActive ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
@@ -1575,7 +1594,7 @@ function renderTable() {
       <td>${esc(r.reason)}</td>
       <td>${esc(r.billing_code)}</td>
       <td style="text-align:center;cursor:pointer;padding:7px 16px" onclick="event.stopPropagation();openStatusMenu(event,${i})" title="Click to change status"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#27ae60':claimStatus==='Rejected'?'#e74c3c':claimStatus==='Pending'?'#e67e22':'#bdc3c7'}"></span></td>
-      <td style="text-align:center"><span class="visits-pill">${r.total_visits || 1}</span></td>
+      <td style="text-align:center"><span class="visits-pill">${getVisitNumber(r, i)}</span></td>
       ${customCells}
     </tr>`;
   }).join('');
