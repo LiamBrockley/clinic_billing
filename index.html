@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.6</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.7</div>
   </div>
 </div>
 
@@ -1046,6 +1046,26 @@ function fuzzyMatch(parsed, options) {
   return ''; // no match found, leave blank
 }
 
+// Try to infer ICD code from reason/notes/raw note text
+function inferIcdCode(reason, notes, rawNote) {
+  if (!state.settings.icd_codes || !state.settings.icd_codes.length) return '';
+  const haystack = [reason, notes, rawNote].join(' ').toLowerCase();
+  if (!haystack.trim()) return '';
+  let bestMatch = ''; let bestScore = 0;
+  state.settings.icd_codes.forEach(code => {
+    const descPart = code.includes('–') ? code.split('–')[1].trim().toLowerCase()
+                   : code.includes('-') ? code.split('-').slice(1).join('-').trim().toLowerCase()
+                   : code.toLowerCase();
+    const descWords = descPart.split(/[\s]+/).filter(w => w.length > 3);
+    if (!descWords.length) return;
+    const matchCount = descWords.filter(w => haystack.includes(w)).length;
+    const ratio = matchCount / descWords.length;
+    const score = ratio * matchCount;
+    if (score > bestScore && ratio >= 0.5) { bestScore = score; bestMatch = code; }
+  });
+  return bestMatch;
+}
+
 // Try to infer billing code from reason/notes/raw note text
 function inferBillingCode(reason, notes, rawNote) {
   if (!state.settings.billing_codes || !state.settings.billing_codes.length) return '';
@@ -1157,7 +1177,7 @@ Return ONLY valid JSON with exactly these fields:
       appointment_type: fuzzyMatch(parsed.appointment_type, state.settings.appt_types) || parsed.appointment_type || '',
       ltc_facility: fuzzyMatch(parsed.ltc_facility, state.settings.ltc_facilities) || parsed.ltc_facility || '',
       reason: parsed.reason || '',
-      diagnosis_code: fuzzyMatch(parsed.diagnosis_code, state.settings.icd_codes || []) || parsed.diagnosis_code || '',
+      diagnosis_code: fuzzyMatch(parsed.diagnosis_code, state.settings.icd_codes || []) || inferIcdCode(parsed.reason, parsed.notes, note) || parsed.diagnosis_code || '',
       billing_code: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) ||
                    inferBillingCode(parsed.reason, parsed.notes, note) ||
                    parsed.billing_code || '',
@@ -1389,7 +1409,7 @@ function showPreview() {
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
     { key: 'fee', label: 'Fee ($)', type: 'text', full: false },
-    { key: 'diagnosis_code', label: 'ICD code', type: 'text', full: false },
+    { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []), full: false },
     { key: 'follow_up', label: 'Follow-up', type: 'text', full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
   ];
@@ -1771,7 +1791,7 @@ function openEdit(index) {
     { key: 'phone', label: 'Phone', type: 'text' },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes) },
     { key: 'fee', label: 'Fee ($)', type: 'text' },
-    { key: 'diagnosis_code', label: 'ICD code', type: 'text' },
+    { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []) },
     { key: 'referred_by', label: 'Referred by', type: 'text' },
     { key: 'follow_up', label: 'Follow-up', type: 'text' },
     { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
