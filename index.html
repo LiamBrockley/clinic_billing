@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.9</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.0</div>
   </div>
 </div>
 
@@ -1395,10 +1395,10 @@ function sortByCol(colLabel) {
 
 function sortByChron() {
   if (sortCol === 'chron') {
-    if (sortDir === -1) { sortCol = null; sortDir = 1; } // third click clears back to default (also newest first)
-    else sortDir = -1; // second click: oldest first
+    if (sortDir === 1) { sortDir = -1; }       // second click: newest first ↓
+    else { sortCol = null; sortDir = 1; }       // third click: clear, back to default
   } else {
-    sortCol = 'chron'; sortDir = 1; // first click: oldest first (ascending)
+    sortCol = 'chron'; sortDir = 1;             // first click: oldest first ↑
   }
   renderTable();
 }
@@ -1535,20 +1535,24 @@ function renderTable() {
   }
 
   // Sort
-  if (sortCol) {
+  const chronSort = (a, b, dir) => {
+    const da = new Date((a.r.date || '') + 'T' + (a.r.time || '00:00'));
+    const db = new Date((b.r.date || '') + 'T' + (b.r.time || '00:00'));
+    return (da - db) * dir;
+  };
+  if (sortCol === 'chron') {
+    rows.sort((a, b) => chronSort(a, b, sortDir));
+  } else if (sortCol) {
     rows.sort((a, b) => {
-      // Date column: sort by date+time combined for true chronological order
-      if (sortCol === 'date') {
-        const da = new Date((a.r.date || '') + 'T' + (a.r.time || '00:00'));
-        const db = new Date((b.r.date || '') + 'T' + (b.r.time || '00:00'));
-        return (da - db) * sortDir;
-      }
       let av = a.r[sortCol] || ''; let bv = b.r[sortCol] || '';
       if (!isNaN(av) && !isNaN(bv) && av !== '' && bv !== '') {
         return (parseFloat(av) - parseFloat(bv)) * sortDir;
       }
       return String(av).localeCompare(String(bv)) * sortDir;
     });
+  } else {
+    // Default: newest first
+    rows.sort((a, b) => chronSort(a, b, -1));
   }
 
   const isFiltered = q || claimFilter !== null;
