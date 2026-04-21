@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.8</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.9</div>
   </div>
 </div>
 
@@ -1152,6 +1152,8 @@ Return ONLY valid JSON with exactly these fields:
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
+  "date": "appointment date in YYYY-MM-DD format if mentioned (e.g. 'April 16th 2026', 'yesterday', 'last Tuesday') — use today's date (${dateStr}) to resolve relative dates. Empty string if not mentioned.",
+  "time": "appointment time in HH:MM 24-hour format if mentioned (e.g. '2pm', '14:00', 'this morning at 9'). Empty string if not mentioned.",
   "phn": "provincial health number if mentioned anywhere in the note — extract digits only, e.g. if they say 'PHN is 1234567890' or 'health number 1234567890' return '1234567890'. Empty string if not mentioned.",
   "notes": "any other relevant clinical notes",
   "missing_fields": ["list of important fields that are missing or unclear and should be asked about — choose from: patient_name, duration, appointment_type, reason, PHN. Only list genuinely missing ones."]${customFieldsList ? `,\n  "custom": {${state.settings.custom_fields.map(f => `"${f}": ""`).join(', ')}}` : ''}
@@ -1171,8 +1173,8 @@ Return ONLY valid JSON with exactly these fields:
 
     pendingEntry = {
       patient_name: parsed.patient_name || '',
-      date: dateStr,
-      time: timeStr,
+      date: parsed.date || dateStr,
+      time: parsed.time || timeStr,
       duration: parseDurationToMinutes(parsed.duration),
       appointment_type: fuzzyMatch(parsed.appointment_type, state.settings.appt_types) || parsed.appointment_type || '',
       ltc_facility: fuzzyMatch(parsed.ltc_facility, state.settings.ltc_facilities) || parsed.ltc_facility || '',
@@ -1213,6 +1215,13 @@ Return ONLY valid JSON with exactly these fields:
     // Get AI's suggested missing fields, but never trust AI about PHN — we handle that ourselves
     const missing = (parsed.missing_fields || []).filter(f => f !== 'PHN');
 
+    // If a past date was mentioned but no time, ask for the time
+    const pastDateGiven = !!(parsed.date && parsed.date !== dateStr);
+    const timeGiven = !!(parsed.time);
+    if (pastDateGiven && !timeGiven) {
+      missing.unshift('time');
+    }
+
     // Only ask for PHN if we don't have it on record AND it wasn't mentioned in the note
     if (!isKnownPatient && !phnInNote) {
       missing.push('PHN');
@@ -1242,6 +1251,7 @@ function followupQuestionFor(field) {
     'duration': 'How long was the appointment?',
     'appointment_type': `What type of appointment was this? (${state.settings.appt_types.join(', ')})`,
     'reason': 'What was the reason for the visit?',
+    'time': `What time was the ${pendingEntry ? pendingEntry.date : 'appointment'}? (e.g. 14:00)`,
     'PHN': `${pendingEntry && !state.patients[(pendingEntry.patient_name||'').toLowerCase().trim()] ? 'New patient — ' : ''}What is the patient\'s provincial health number (PHN)?`
   };
   return map[field] || null;
@@ -1302,6 +1312,24 @@ function applyFollowupAnswer(field, answer) {
   else if (field === 'duration') pendingEntry.duration = parseDurationToMinutes(answer);
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
   else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
+  else if (field === 'time') {
+    // Accept various formats and normalize to HH:MM
+    const t = answer.trim().toLowerCase().replace('.', ':').replace(/\s/g, '');
+    const pmMatch = t.match(/(\d{1,2})(?::(\d{2}))?pm/);
+    const amMatch = t.match(/(\d{1,2})(?::(\d{2}))?am/);
+    const plainMatch = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (pmMatch) {
+      let h = parseInt(pmMatch[1]); if (h !== 12) h += 12;
+      pendingEntry.time = String(h).padStart(2,'0') + ':' + (pmMatch[2] || '00');
+    } else if (amMatch) {
+      let h = parseInt(amMatch[1]); if (h === 12) h = 0;
+      pendingEntry.time = String(h).padStart(2,'0') + ':' + (amMatch[2] || '00');
+    } else if (plainMatch) {
+      pendingEntry.time = String(parseInt(plainMatch[1])).padStart(2,'0') + ':' + plainMatch[2];
+    } else {
+      pendingEntry.time = answer; // store as-is if unrecognised
+    }
+  }
 }
 
 function autofillFromPatientRecord(field, value) {
