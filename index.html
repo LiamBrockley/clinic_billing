@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.8</div>
   </div>
 </div>
 
@@ -1408,9 +1408,7 @@ function showPreview() {
     { key: 'reason', label: 'Reason for visit', type: 'text', full: false },
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
-    { key: 'fee', label: 'Fee ($)', type: 'text', full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []), full: false },
-    { key: 'follow_up', label: 'Follow-up', type: 'text', full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
   ];
 
