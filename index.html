@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.3</div>
   </div>
 </div>
 
@@ -1061,8 +1061,13 @@ function inferIcdCode(reason, notes, rawNote) {
     if (!descWords.length) return;
     const matchCount = descWords.filter(w => haystack.includes(w)).length;
     const ratio = matchCount / descWords.length;
-    const score = ratio * matchCount;
-    if (score > bestScore && ratio >= 0.5) { bestScore = score; bestMatch = code; }
+    // Bonus if the primary condition word (first word) matches — it's the most important
+    const primaryMatch = descWords.length > 0 && haystack.includes(descWords[0]) ? 1.5 : 1;
+    const score = ratio * matchCount * primaryMatch;
+    // Accept if: ratio >= 0.5, OR primary condition word matches alone
+    if (score > bestScore && (ratio >= 0.5 || (descWords.length > 0 && haystack.includes(descWords[0])))) {
+      bestScore = score; bestMatch = code;
+    }
   });
   return bestMatch;
 }
