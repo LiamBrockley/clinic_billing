@@ -536,6 +536,15 @@
         </div>
 
         <div class="settings-section">
+          <h4>ICD Codes</h4>
+          <div class="tag-list" id="icdCodeList"></div>
+          <div class="add-tag-row">
+            <input type="text" id="newIcdCode" placeholder="e.g. I10 – Hypertension" onkeydown="if(event.key==='Enter')addTag('icdCode')" />
+            <button onclick="addTag('icdCode')">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <h4>MSP Billing Codes</h4>
           <div class="tag-list" id="billingCodeList"></div>
           <div class="add-tag-row">
@@ -623,6 +632,47 @@ const DEFAULT_STATE = {
       '13005 – Preventive care counselling',
       '14033 – Pap smear',
       '00115 – Extended office visit'
+    ],
+    icd_codes: [
+      'I10 – Hypertension',
+      'E11.9 – Type 2 diabetes, uncomplicated',
+      'E10.9 – Type 1 diabetes, uncomplicated',
+      'J06.9 – Acute upper respiratory infection',
+      'J02.9 – Acute pharyngitis',
+      'J20.9 – Acute bronchitis',
+      'J44.1 – COPD with acute exacerbation',
+      'J45.20 – Mild intermittent asthma',
+      'N39.0 – Urinary tract infection',
+      'M54.5 – Low back pain',
+      'M54.2 – Cervicalgia (neck pain)',
+      'F32.1 – Major depressive disorder, moderate',
+      'F41.1 – Generalized anxiety disorder',
+      'F41.9 – Anxiety disorder, unspecified',
+      'Z00.00 – General adult exam, no abnormal findings',
+      'Z00.01 – General adult exam, with abnormal findings',
+      'Z00.129 – Routine child health exam',
+      'R07.9 – Chest pain, unspecified',
+      'R51 – Headache',
+      'R05 – Cough',
+      'R50.9 – Fever, unspecified',
+      'R10.9 – Abdominal pain, unspecified',
+      'K21.0 – GERD with oesophagitis',
+      'K57.30 – Diverticulosis of large intestine',
+      'E78.5 – Hyperlipidaemia',
+      'E03.9 – Hypothyroidism, unspecified',
+      'D50.9 – Iron deficiency anaemia',
+      'I25.10 – Coronary artery disease',
+      'I48.91 – Atrial fibrillation',
+      'I50.9 – Heart failure, unspecified',
+      'G43.909 – Migraine, unspecified',
+      'G89.29 – Chronic pain, unspecified',
+      'L30.9 – Dermatitis, unspecified',
+      'L40.0 – Psoriasis vulgaris',
+      'B35.1 – Tinea unguium (nail fungus)',
+      'H66.90 – Otitis media, unspecified',
+      'N18.9 – Chronic kidney disease, unspecified',
+      'Z23 – Immunization encounter',
+      'Z13.6 – Screening for cardiovascular disorders'
     ],
     custom_fields: []
   }
@@ -1255,7 +1305,7 @@ function showPreview() {
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
     { key: 'fee', label: 'Fee ($)', type: 'text', full: false },
-    { key: 'diagnosis_code', label: 'Diagnosis code (ICD-10)', type: 'text', full: false },
+    { key: 'diagnosis_code', label: 'ICD code', type: 'text', full: false },
     { key: 'follow_up', label: 'Follow-up', type: 'text', full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
   ];
@@ -1369,7 +1419,7 @@ function setSubmitLoading(on) {
 //  TABLE RENDERING
 // ════════════════════════════════════════
 function getColumns() {
-  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','Billing code','Claim status','Visit'];
+  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','ICD code','Billing code','Claim status','Visit'];
   return base.concat(state.settings.custom_fields);
 }
 
@@ -1597,6 +1647,7 @@ function renderTable() {
       <td class="td-name">${esc(r.patient_name)}</td>
       <td>${esc(r.appointment_type)}${r.ltc_facility ? '<br><span style="font-size:10px;color:var(--text-light)">'+esc(r.ltc_facility)+'</span>' : ''}</td>
       <td>${esc(r.reason)}</td>
+      <td class="td-muted">${esc(r.diagnosis_code)}</td>
       <td>${esc(r.billing_code)}</td>
       <td style="text-align:center;cursor:pointer;padding:7px 16px" onclick="event.stopPropagation();openStatusMenu(event,${i})" title="Click to change status"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#27ae60':claimStatus==='Rejected'?'#e74c3c':claimStatus==='Pending'?'#e67e22':'#bdc3c7'}"></span></td>
       <td style="text-align:center"><span class="visits-pill">${getVisitNumber(r, i)}</span></td>
@@ -1636,7 +1687,7 @@ function openEdit(index) {
     { key: 'phone', label: 'Phone', type: 'text' },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes) },
     { key: 'fee', label: 'Fee ($)', type: 'text' },
-    { key: 'diagnosis_code', label: 'Diagnosis code', type: 'text' },
+    { key: 'diagnosis_code', label: 'ICD code', type: 'text' },
     { key: 'referred_by', label: 'Referred by', type: 'text' },
     { key: 'follow_up', label: 'Follow-up', type: 'text' },
     { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
@@ -1769,7 +1820,6 @@ function openPatientEditor(nameKey) {
       <div class="editor-field"><label>PHN</label><input type="text" id="ep-phn" value="${p.phn || ''}" /></div>
       <div class="editor-field"><label>Date of birth</label><input type="text" id="ep-dob" value="${p.dob || ''}" placeholder="YYYY-MM-DD" /></div>
       <div class="editor-field"><label>Gender</label><input type="text" id="ep-gender" value="${p.gender || ''}" /></div>
-      <div class="editor-field"><label>Phone</label><input type="text" id="ep-phone" value="${p.phone || ''}" /></div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn-primary" onclick="savePatientEditor('${nameKey}')">Save</button>
@@ -1785,12 +1835,10 @@ async function savePatientEditor(nameKey) {
   const phn    = document.getElementById('ep-phn').value;
   const dob    = document.getElementById('ep-dob').value;
   const gender = document.getElementById('ep-gender').value;
-  const phone  = document.getElementById('ep-phone').value;
 
   state.patients[nameKey].phn    = phn;
   state.patients[nameKey].dob    = dob;
   state.patients[nameKey].gender = gender;
-  state.patients[nameKey].phone  = phone;
 
   // Sync updated patient fields to every matching log entry
   state.log.forEach(entry => {
@@ -1798,7 +1846,6 @@ async function savePatientEditor(nameKey) {
       if (phn)    entry.phn    = phn;
       if (dob)    entry.dob    = dob;
       if (gender) entry.gender = gender;
-      if (phone)  entry.phone  = phone;
     }
   });
 
@@ -1824,7 +1871,6 @@ function openNewPatientForm() {
       <div class="editor-field"><label>PHN</label><input type="text" id="np-phn" /></div>
       <div class="editor-field"><label>Date of birth</label><input type="text" id="np-dob" placeholder="YYYY-MM-DD" /></div>
       <div class="editor-field"><label>Gender</label><input type="text" id="np-gender" /></div>
-      <div class="editor-field"><label>Phone</label><input type="text" id="np-phone" /></div>
     </div>
     <div style="display:flex;gap:6px">
       <button class="btn-primary" onclick="saveNewPatient()">Save patient</button>
@@ -1851,7 +1897,6 @@ async function saveNewPatient() {
   if (phn)    p.phn    = phn;
   if (dob)    p.dob    = dob;
   if (gender) p.gender = gender;
-  if (phone)  p.phone  = phone;
   await saveState();
   closePatientEditor();
   renderDirectory();
@@ -1916,6 +1961,7 @@ function newAppointmentFromPatient(nameKey) {
 function renderSettings() {
   renderTagList('apptType', state.settings.appt_types);
   renderTagList('ltcFacility', state.settings.ltc_facilities);
+  renderTagList('icdCode', state.settings.icd_codes || []);
   renderTagList('billingCode', state.settings.billing_codes);
   renderTagList('customField', state.settings.custom_fields);
 }
