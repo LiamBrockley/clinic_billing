@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.1</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.2</div>
   </div>
 </div>
 
@@ -1056,7 +1056,8 @@ function inferIcdCode(reason, notes, rawNote) {
     const descPart = code.includes('–') ? code.split('–')[1].trim().toLowerCase()
                    : code.includes('-') ? code.split('-').slice(1).join('-').trim().toLowerCase()
                    : code.toLowerCase();
-    const descWords = descPart.split(/[\s]+/).filter(w => w.length > 3);
+    // Split on spaces and punctuation, keep words 3+ chars
+    const descWords = descPart.split(/[\s,;().]+/).filter(w => w.length >= 3 && w !== 'and' && w !== 'the');
     if (!descWords.length) return;
     const matchCount = descWords.filter(w => haystack.includes(w)).length;
     const ratio = matchCount / descWords.length;
@@ -1313,11 +1314,25 @@ function applyFollowupAnswer(field, answer) {
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
   else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
   else if (field === 'time') {
+    // Convert spoken time phrases to digit form first
+    let spoken = answer.trim().toLowerCase();
+    spoken = spoken.replace(/quarter\s+past\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)/g, (m, h) => {
+      const nums = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12};
+      const hour = nums[h] || parseInt(h); return hour + ':15';
+    });
+    spoken = spoken.replace(/half\s+past\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)/g, (m, h) => {
+      const nums = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12};
+      const hour = nums[h] || parseInt(h); return hour + ':30';
+    });
+    spoken = spoken.replace(/quarter\s+to\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)/g, (m, h) => {
+      const nums = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12};
+      const hour = (nums[h] || parseInt(h)) - 1; return hour + ':45';
+    });
     // Normalise: remove dots, extra spaces, then parse
-    const t = answer.trim().toLowerCase()
-      .replace(/\.m\./g, 'm')   // p.m. -> pm, a.m. -> am
-      .replace(/\./g, '')        // remove any remaining dots
-      .replace(/\s+/g, '');      // remove all spaces
+    const t = spoken
+      .replace(/\.m\./g, 'm')
+      .replace(/\./g, '')
+      .replace(/\s+/g, '');
     const pmMatch = t.match(/(\d{1,2})(?::(\d{2}))?pm/);
     const amMatch = t.match(/(\d{1,2})(?::(\d{2}))?am/);
     const plainMatch = t.match(/^(\d{1,2}):(\d{2})$/);
