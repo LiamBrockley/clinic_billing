@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.8</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.9</div>
   </div>
 </div>
 
@@ -772,15 +772,20 @@ document.getElementById('passwordInput').addEventListener('keydown', e => { if (
 //  INIT
 // ════════════════════════════════════════
 function convertTo24Hour(timeStr) {
-  if (!timeStr || (!timeStr.includes('AM') && !timeStr.includes('PM'))) return timeStr;
-  const [time, modifier] = timeStr.split(' ');
-  let [hours, minutes] = time.split(':');
-  hours = parseInt(hours);
-  if (modifier === 'AM') {
-    if (hours === 12) hours = 0;
-  } else {
-    if (hours !== 12) hours += 12;
-  }
+  if (!timeStr) return timeStr;
+  // Already 24-hour format (HH:MM with no am/pm)
+  if (/^\d{2}:\d{2}$/.test(timeStr.trim())) return timeStr;
+  // Normalize: handles "1:04 PM", "1:04 p.m.", "1:04 am", "p.m. 1:04" etc.
+  const normalized = timeStr.toLowerCase().replace(/\./g, '').trim();
+  const isPM = normalized.includes('pm');
+  const isAM = normalized.includes('am');
+  if (!isPM && !isAM) return timeStr; // unrecognised format, leave as-is
+  const match = normalized.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return timeStr;
+  let hours = parseInt(match[1]);
+  const minutes = match[2];
+  if (isAM && hours === 12) hours = 0;
+  if (isPM && hours !== 12) hours += 12;
   return String(hours).padStart(2, '0') + ':' + minutes;
 }
 
