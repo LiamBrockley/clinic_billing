@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v2.8</div>
   </div>
 </div>
 
@@ -771,9 +771,32 @@ document.getElementById('passwordInput').addEventListener('keydown', e => { if (
 // ════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════
+function convertTo24Hour(timeStr) {
+  if (!timeStr || (!timeStr.includes('AM') && !timeStr.includes('PM'))) return timeStr;
+  const [time, modifier] = timeStr.split(' ');
+  let [hours, minutes] = time.split(':');
+  hours = parseInt(hours);
+  if (modifier === 'AM') {
+    if (hours === 12) hours = 0;
+  } else {
+    if (hours !== 12) hours += 12;
+  }
+  return String(hours).padStart(2, '0') + ':' + minutes;
+}
+
+async function migrateTimeTo24Hour() {
+  let changed = false;
+  state.log.forEach(r => {
+    const converted = convertTo24Hour(r.time);
+    if (converted !== r.time) { r.time = converted; changed = true; }
+  });
+  if (changed) await saveState();
+}
+
 function initApp() {
   updateTopbarDate();
   setInterval(updateTopbarDate, 60000);
+  migrateTimeTo24Hour();
   renderTable();
   renderSettings();
   renderDirectory();
@@ -1342,12 +1365,14 @@ function getColumns() {
 
 // Maps column label to the field key used for sorting
 const COL_KEYS = {
-  'Date': 'date', 'Dur (mins)': 'duration',
+  'Dur (mins)': 'duration',
   'Patient': 'patient_name',
   'Type': 'appointment_type', 'Reason': 'reason',
   'Billing code': 'billing_code',
   'Visits': 'total_visits'
 };
+// Time column sorts by full date+time chronologically
+const CHRON_COL = 'Time';
 
 const CLAIM_STATUSES = ['Not submitted', 'Pending', 'Accepted', 'Rejected'];
 
@@ -1355,10 +1380,20 @@ function sortByCol(colLabel) {
   const key = COL_KEYS[colLabel];
   if (!key) return;
   if (sortCol === key) {
-    if (sortDir === -1) { sortCol = null; sortDir = 1; } // third click clears sort
+    if (sortDir === -1) { sortCol = null; sortDir = 1; }
     else sortDir = -1;
   } else {
     sortCol = key; sortDir = 1;
+  }
+  renderTable();
+}
+
+function sortByChron() {
+  if (sortCol === 'chron') {
+    if (sortDir === -1) { sortCol = null; sortDir = 1; } // third click clears back to default (also newest first)
+    else sortDir = -1; // second click: oldest first
+  } else {
+    sortCol = 'chron'; sortDir = 1; // first click: oldest first (ascending)
   }
   renderTable();
 }
@@ -1458,6 +1493,15 @@ function renderTable() {
       const cls = isActive ? ' class="claim-active"' : '';
       const dot = isActive ? ` <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${claimFilter==='Accepted'?'#27ae60':claimFilter==='Rejected'?'#e74c3c':claimFilter==='Pending'?'#e67e22':'#bdc3c7'};vertical-align:middle"></span>` : '';
       return `<th${cls} onclick="toggleClaimMenu(event)" style="position:relative;white-space:nowrap">${c}${dot}</th>`;
+    }
+    if (c === 'Time') {
+      const isActive = sortCol === 'chron';
+      const arrow = isActive ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
+      const cls = isActive ? ' class="sort-active"' : '';
+      return `<th${cls} onclick="sortByChron()" title="Sort by date &amp; time">${c}${arrow}</th>`;
+    }
+    if (c === 'Date') {
+      return `<th>${c}</th>`;
     }
     const isActive = sortCol && COL_KEYS[c] === sortCol;
     const arrow = isActive ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
