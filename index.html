@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.4</div>
   </div>
 </div>
 
@@ -1160,6 +1160,8 @@ Return ONLY valid JSON with exactly these fields:
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
   "date": "appointment date in YYYY-MM-DD format if mentioned (e.g. 'April 16th 2026', 'yesterday', 'last Tuesday') — use today's date (${dateStr}) to resolve relative dates. Empty string if not mentioned.",
   "time": "appointment time in HH:MM 24-hour format if mentioned (e.g. '2pm', '14:00', 'this morning at 9'). Empty string if not mentioned.",
+  "dob": "patient date of birth if mentioned, in YYYY-MM-DD format. Empty string if not mentioned.",
+  "gender": "patient gender if mentioned (e.g. Male, Female, Non-binary). Empty string if not mentioned.",
   "phn": "provincial health number if mentioned anywhere in the note — extract digits only, e.g. if they say 'PHN is 1234567890' or 'health number 1234567890' return '1234567890'. Empty string if not mentioned.",
   "notes": "any other relevant clinical notes",
   "missing_fields": ["list of important fields that are missing or unclear and should be asked about — choose from: patient_name, duration, appointment_type, reason, PHN. Only list genuinely missing ones."]${customFieldsList ? `,\n  "custom": {${state.settings.custom_fields.map(f => `"${f}": ""`).join(', ')}}` : ''}
@@ -1191,6 +1193,8 @@ Return ONLY valid JSON with exactly these fields:
                    parsed.billing_code || '',
       fee: parsed.fee || '',
       phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
+      dob: parsed.dob || '',
+      gender: parsed.gender || '',
       dob: '',
       gender: '',
       phone: '',
@@ -1382,7 +1386,7 @@ function autofillFromPatientRecord(field, value) {
   pendingEntry.phone  = p.phone  || pendingEntry.phone;
 
   // Update the visible input fields in the grid without full re-render
-  const fields = { patient_name: displayName, phn: p.phn||'', dob: p.dob||'', gender: p.gender||'', phone: p.phone||'' };
+  const fields = { patient_name: displayName, phn: p.phn||'', dob: p.dob||'', gender: p.gender||'' };
   Object.entries(fields).forEach(([key, val]) => {
     const el = document.querySelector('#previewGrid input[data-key="' + key + '"]');
     if (el && val) el.value = val;
@@ -1458,6 +1462,8 @@ function showPreview() {
     { key: 'ltc_facility', label: 'LTC facility', type: 'select', options: state.settings.ltc_facilities, full: false, hidden: !ltcVisible },
     { key: 'reason', label: 'Reason for visit', type: 'text', full: false },
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
+    { key: 'dob', label: 'Date of birth', type: 'text', full: false },
+    { key: 'gender', label: 'Gender', type: 'text', full: false },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
