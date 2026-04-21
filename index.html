@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.4</div>
   </div>
 </div>
 
@@ -1035,6 +1035,37 @@ function fuzzyMatch(parsed, options) {
   return ''; // no match found, leave blank
 }
 
+// Try to infer billing code from reason/notes/raw note text
+function inferBillingCode(reason, notes, rawNote) {
+  if (!state.settings.billing_codes || !state.settings.billing_codes.length) return '';
+  const haystack = [reason, notes, rawNote].join(' ').toLowerCase();
+  if (!haystack.trim()) return '';
+
+  // Score each billing code by how many words from its description appear in the note
+  let bestMatch = '';
+  let bestScore = 0;
+
+  state.settings.billing_codes.forEach(code => {
+    // Extract the description part after the dash
+    const descPart = code.includes('–') ? code.split('–')[1].trim().toLowerCase()
+                   : code.includes('-') ? code.split('-').slice(1).join('-').trim().toLowerCase()
+                   : code.toLowerCase();
+
+    const descWords = descPart.split(/\s+/).filter(w => w.length > 3);
+    if (!descWords.length) return;
+
+    const matchCount = descWords.filter(w => haystack.includes(w)).length;
+    const score = matchCount / descWords.length; // proportion of desc words found
+
+    if (score > bestScore && score >= 0.5) { // at least 50% of description words must match
+      bestScore = score;
+      bestMatch = code;
+    }
+  });
+
+  return bestMatch;
+}
+
 function parseDurationToMinutes(raw) {
   if (!raw && raw !== 0) return '';
   const s = String(raw).toLowerCase().trim();
@@ -1111,7 +1142,9 @@ Return ONLY valid JSON with exactly these fields:
       ltc_facility: fuzzyMatch(parsed.ltc_facility, state.settings.ltc_facilities) || parsed.ltc_facility || '',
       reason: parsed.reason || '',
       diagnosis_code: fuzzyMatch(parsed.diagnosis_code, state.settings.icd_codes || []) || parsed.diagnosis_code || '',
-      billing_code: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) || parsed.billing_code || '',
+      billing_code: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) ||
+                   inferBillingCode(parsed.reason, parsed.notes, note) ||
+                   parsed.billing_code || '',
       fee: parsed.fee || '',
       phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
       dob: '',
