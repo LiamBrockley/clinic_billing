@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.3</div>
   </div>
 </div>
 
@@ -1000,6 +1000,41 @@ function stopMic() {
 // ════════════════════════════════════════
 //  NOTE SUBMISSION & AI PARSING
 // ════════════════════════════════════════
+
+// Fuzzy match: find the best option from a list for a parsed value
+// Tries: exact match, starts-with, contains, then partial word overlap
+function fuzzyMatch(parsed, options) {
+  if (!parsed) return '';
+  const p = parsed.toLowerCase().trim();
+  if (!p) return '';
+
+  // 1. Exact match
+  const exact = options.find(o => o.toLowerCase().trim() === p);
+  if (exact) return exact;
+
+  // 2. Option starts with parsed value (e.g. "00102" matches "00102 – Video consultation")
+  const startsWith = options.find(o => o.toLowerCase().startsWith(p));
+  if (startsWith) return startsWith;
+
+  // 3. Parsed value starts with option code (e.g. "I10 – hypertension" matches "I10 – Hypertension")
+  const parsedStartsWith = options.find(o => p.startsWith(o.toLowerCase().split(' ')[0]));
+  if (parsedStartsWith) return parsedStartsWith;
+
+  // 4. Option contains parsed value
+  const contains = options.find(o => o.toLowerCase().includes(p));
+  if (contains) return contains;
+
+  // 5. Parsed value contains any word from the option (for appointment types like "phone call" -> "Phone")
+  const words = p.split(/\s+/);
+  const wordMatch = options.find(o => {
+    const oWords = o.toLowerCase().split(/\s+/);
+    return oWords.some(ow => words.some(w => w.length > 3 && (ow.includes(w) || w.includes(ow))));
+  });
+  if (wordMatch) return wordMatch;
+
+  return ''; // no match found, leave blank
+}
+
 function parseDurationToMinutes(raw) {
   if (!raw && raw !== 0) return '';
   const s = String(raw).toLowerCase().trim();
@@ -1072,11 +1107,11 @@ Return ONLY valid JSON with exactly these fields:
       date: dateStr,
       time: timeStr,
       duration: parseDurationToMinutes(parsed.duration),
-      appointment_type: parsed.appointment_type || '',
-      ltc_facility: parsed.ltc_facility || '',
+      appointment_type: fuzzyMatch(parsed.appointment_type, state.settings.appt_types) || parsed.appointment_type || '',
+      ltc_facility: fuzzyMatch(parsed.ltc_facility, state.settings.ltc_facilities) || parsed.ltc_facility || '',
       reason: parsed.reason || '',
-      diagnosis_code: parsed.diagnosis_code || '',
-      billing_code: parsed.billing_code || '',
+      diagnosis_code: fuzzyMatch(parsed.diagnosis_code, state.settings.icd_codes || []) || parsed.diagnosis_code || '',
+      billing_code: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) || parsed.billing_code || '',
       fee: parsed.fee || '',
       phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
       dob: '',
