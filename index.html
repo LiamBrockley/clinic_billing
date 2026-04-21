@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.1</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.2</div>
   </div>
 </div>
 
@@ -476,6 +476,11 @@
         <input class="dir-search" id="dirSearch" placeholder="Search patients…" oninput="renderDirectory()" />
         <div id="patientEditor" class="patient-editor"></div>
         <div id="patientList"></div>
+        <div style="padding:0.75rem 0 0.25rem">
+          <button onclick="openNewPatientForm()" style="font-size:12px;color:var(--text-light);border:1px dashed var(--border);background:transparent;width:100%;padding:0.5rem;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onmouseover="this.style.background='var(--sage-light)'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:16px;line-height:1;color:var(--sage-dark)">+</span> Add patient manually
+          </button>
+        </div>
       </div>
 
       <!-- SETTINGS TAB -->
@@ -1807,6 +1812,49 @@ function closePatientEditor() {
   const ed = document.getElementById('patientEditor');
   ed.style.display = 'none';
   ed.innerHTML = '';
+}
+
+function openNewPatientForm() {
+  const ed = document.getElementById('patientEditor');
+  ed.style.display = 'block';
+  ed.innerHTML = `
+    <div style="font-weight:500;margin-bottom:0.75rem;font-size:14px">New patient</div>
+    <div class="editor-grid">
+      <div class="editor-field full"><label>Full name</label><input type="text" id="np-name" placeholder="e.g. Jane Smith" /></div>
+      <div class="editor-field"><label>PHN</label><input type="text" id="np-phn" /></div>
+      <div class="editor-field"><label>Date of birth</label><input type="text" id="np-dob" placeholder="YYYY-MM-DD" /></div>
+      <div class="editor-field"><label>Gender</label><input type="text" id="np-gender" /></div>
+      <div class="editor-field"><label>Phone</label><input type="text" id="np-phone" /></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn-primary" onclick="saveNewPatient()">Save patient</button>
+      <button onclick="closePatientEditor()">Cancel</button>
+    </div>
+  `;
+  ed.scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('np-name').focus();
+}
+
+async function saveNewPatient() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) { alert('Please enter a patient name.'); return; }
+  const nameKey = name.toLowerCase().trim();
+  if (state.patients[nameKey]) {
+    if (!confirm(`${name} already exists as a patient. Update their details?`)) return;
+  }
+  if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
+  const p = state.patients[nameKey];
+  const phn    = document.getElementById('np-phn').value.trim();
+  const dob    = document.getElementById('np-dob').value.trim();
+  const gender = document.getElementById('np-gender').value.trim();
+  const phone  = document.getElementById('np-phone').value.trim();
+  if (phn)    p.phn    = phn;
+  if (dob)    p.dob    = dob;
+  if (gender) p.gender = gender;
+  if (phone)  p.phone  = phone;
+  await saveState();
+  closePatientEditor();
+  renderDirectory();
 }
 
 async function deletePatient(nameKey) {
