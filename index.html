@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v3.9</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.0</div>
   </div>
 </div>
 
@@ -1313,8 +1313,11 @@ function applyFollowupAnswer(field, answer) {
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
   else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
   else if (field === 'time') {
-    // Accept various formats and normalize to HH:MM
-    const t = answer.trim().toLowerCase().replace('.', ':').replace(/\s/g, '');
+    // Normalise: remove dots, extra spaces, then parse
+    const t = answer.trim().toLowerCase()
+      .replace(/\.m\./g, 'm')   // p.m. -> pm, a.m. -> am
+      .replace(/\./g, '')        // remove any remaining dots
+      .replace(/\s+/g, '');      // remove all spaces
     const pmMatch = t.match(/(\d{1,2})(?::(\d{2}))?pm/);
     const amMatch = t.match(/(\d{1,2})(?::(\d{2}))?am/);
     const plainMatch = t.match(/^(\d{1,2}):(\d{2})$/);
@@ -1327,7 +1330,7 @@ function applyFollowupAnswer(field, answer) {
     } else if (plainMatch) {
       pendingEntry.time = String(parseInt(plainMatch[1])).padStart(2,'0') + ':' + plainMatch[2];
     } else {
-      pendingEntry.time = answer; // store as-is if unrecognised
+      pendingEntry.time = answer;
     }
   }
 }
