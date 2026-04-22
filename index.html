@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.4</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.5</div>
   </div>
 </div>
 
@@ -1465,7 +1465,7 @@ function showPreview() {
     { key: 'dob', label: 'Date of birth', type: 'text', full: false },
     { key: 'gender', label: 'Gender', type: 'text', full: false },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
-    { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []), full: false },
+    { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat((state.settings.icd_codes || []).slice().sort((a,b) => { const da = a.includes('–')?a.split('–')[1].trim():a; const db = b.includes('–')?b.split('–')[1].trim():b; return da.localeCompare(db); })), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
   ];
 
