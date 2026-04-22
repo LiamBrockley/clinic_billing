@@ -216,6 +216,7 @@
   .claim-menu-item.active { color: var(--sage-dark); font-weight: 500; }
   tbody tr { border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.1s; }
   tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #f4f8f5; }
   tbody tr:hover { background: var(--sage-light); }
   tbody td { padding: 7px 10px; color: var(--text); vertical-align: middle; }
   .td-name { font-weight: 500; }
@@ -358,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.8</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.9</div>
   </div>
 </div>
 
