@@ -358,7 +358,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.5</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.6</div>
   </div>
 </div>
 
@@ -1539,12 +1539,21 @@ async function confirmAppointment() {
   const nameKey = pendingEntry.patient_name.toLowerCase().trim();
   if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
   const p = state.patients[nameKey];
-  if (pendingEntry.phn) p.phn = pendingEntry.phn;
-  if (pendingEntry.dob) p.dob = pendingEntry.dob;
+  if (pendingEntry.phn)    p.phn    = pendingEntry.phn;
+  if (pendingEntry.dob)    p.dob    = pendingEntry.dob;
   if (pendingEntry.gender) p.gender = pendingEntry.gender;
-  if (pendingEntry.phone) p.phone = pendingEntry.phone;
+  if (pendingEntry.phone)  p.phone  = pendingEntry.phone;
   p.visits = (p.visits || 0) + 1;
   p.last_seen = pendingEntry.date;
+
+  // Sync patient-level fields to all previous log entries for this patient
+  state.log.forEach(entry => {
+    if ((entry.patient_name || '').toLowerCase().trim() === nameKey) {
+      if (pendingEntry.phn)    entry.phn    = pendingEntry.phn;
+      if (pendingEntry.dob)    entry.dob    = pendingEntry.dob;
+      if (pendingEntry.gender) entry.gender = pendingEntry.gender;
+    }
+  });
 
   state.log.unshift({ ...pendingEntry, total_visits: p.visits });
 
