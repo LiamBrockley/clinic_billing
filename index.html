@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.6</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.7</div>
   </div>
 </div>
 
@@ -1327,53 +1327,45 @@ function stopMic() {
 //  NOTE SUBMISSION & AI PARSING
 // ════════════════════════════════════════
 
-// Simple string similarity (0-1) based on common characters
-function stringSimilarity(a, b) {
-  a = a.toLowerCase().trim();
-  b = b.toLowerCase().trim();
-  if (a === b) return 1;
-  if (!a || !b) return 0;
-  const longer = a.length > b.length ? a : b;
-  const shorter = a.length > b.length ? b : a;
-  let matches = 0;
-  for (let i = 0; i < shorter.length; i++) {
-    if (longer.includes(shorter[i])) matches++;
-  }
-  return matches / longer.length;
+// Levenshtein distance between two strings
+function levenshtein(a, b) {
+  a = a.toLowerCase(); b = b.toLowerCase();
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, (_, i) => Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
 }
 
-// Match a parsed name against known patients — returns best match if similar enough
-function matchKnownPatient(parsedName) {
-  if (!parsedName || !state.patients) return '';
-  const parsed = parsedName.toLowerCase().trim();
-  // Split parsed name into parts for matching
-  const parsedParts = parsed.replace(',', '').split(/\s+/);
-  
-  let bestKey = '';
-  let bestScore = 0;
-
-  Object.keys(state.patients).forEach(nameKey => {
-    const knownParts = nameKey.replace(',', '').split(/\s+/);
-    
-    // Score: how well do the name parts match across both orderings
-    let score = 0;
-    parsedParts.forEach(pp => {
-      const best = Math.max(...knownParts.map(kp => stringSimilarity(pp, kp)));
-      score += best;
-    });
-    score = score / Math.max(parsedParts.length, knownParts.length);
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestKey = nameKey;
-    }
+// Score how well a parsed name matches a known patient name key
+// Compares all combinations of name parts regardless of order
+function nameMatchScore(parsedName, nameKey) {
+  const pParts = parsedName.toLowerCase().replace(',','').split(/\s+/).filter(Boolean);
+  const kParts = nameKey.toLowerCase().replace(',','').split(/\s+/).filter(Boolean);
+  if (!pParts.length || !kParts.length) return 0;
+  let totalScore = 0;
+  pParts.forEach(pp => {
+    const bestDist = Math.min(...kParts.map(kp => levenshtein(pp, kp)));
+    const maxLen = Math.max(pp.length, Math.min(...kParts.map(kp => kp.length)));
+    totalScore += Math.max(0, 1 - bestDist / Math.max(maxLen, 1));
   });
+  return totalScore / Math.max(pParts.length, kParts.length);
+}
 
-  // Only snap if score is good enough (0.65 = fairly loose)
-  if (bestScore >= 0.65 && bestKey) {
-    return bestKey.split(',').map(p => p.trim().replace(/\w/g, c => c.toUpperCase())).join(', ');
-  }
-  return '';
+// Match parsed name strictly to known patient list — always returns best match or null
+function matchKnownPatient(parsedName) {
+  if (!parsedName || !state.patients) return null;
+  const keys = Object.keys(state.patients);
+  if (!keys.length) return null;
+  let bestKey = ''; let bestScore = 0;
+  keys.forEach(nameKey => {
+    const score = nameMatchScore(parsedName, nameKey);
+    if (score > bestScore) { bestScore = score; bestKey = nameKey; }
+  });
+  // Return best match regardless of score — patient is always from the list
+  if (bestKey) return bestKey.split(',').map(p => p.trim().replace(/\w/g, c => c.toUpperCase())).join(', ');
+  return null;
 }
 
 // Fuzzy match: find the best option from a list for a parsed value
@@ -1547,11 +1539,11 @@ Return ONLY valid JSON with exactly these fields:
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 
-    // Phonetic name matching against known patients
-    const matchedName = matchKnownPatient(parsed.patient_name || '');
+    // Always snap to known patient — dictation only ever creates appointments for existing patients
+    const matchedName = matchKnownPatient(parsed.patient_name || '') || parsed.patient_name || '';
 
     pendingEntry = {
-      patient_name: matchedName || parsed.patient_name || '',
+      patient_name: matchedName,
       date: parsed.date || dateStr,
       time: parsed.time || timeStr,
       duration: parseDurationToMinutes(parsed.duration),
@@ -1607,6 +1599,11 @@ Return ONLY valid JSON with exactly these fields:
     followupAnswers = {};
     followupQueue = [];
 
+    // If we have patients on file but couldn't match a name, ask which patient
+    if (Object.keys(state.patients).length > 0 && !pendingEntry.patient_name.trim()) {
+      followupQueue.push({ field: 'patient_name', question: 'Which patient was this appointment for? (Start typing to search)' });
+    }
+
     const isKnownPatient = !!(state.patients[nameKey] && state.patients[nameKey].phn && state.patients[nameKey].phn.trim());
     const phnInNote = !!(pendingEntry.phn && pendingEntry.phn.trim());
 
@@ -1620,10 +1617,7 @@ Return ONLY valid JSON with exactly these fields:
       missing.unshift('time');
     }
 
-    // Only ask for PHN if we don't have it on record AND it wasn't mentioned in the note
-    if (!isKnownPatient && !phnInNote) {
-      missing.push('PHN');
-    }
+    // Never ask for PHN in dictation flow — patients are always existing, PHN already on file
 
     missing.forEach(field => {
       const q = followupQuestionFor(field);
@@ -1706,7 +1700,19 @@ function cleanReason(str) {
 
 function applyFollowupAnswer(field, answer) {
   if (field === 'PHN') pendingEntry.phn = wordsToDigits(answer).replace(/\D/g, '');
-  else if (field === 'patient_name') pendingEntry.patient_name = answer;
+  else if (field === 'patient_name') {
+    const snapped = matchKnownPatient(answer);
+    pendingEntry.patient_name = snapped || answer;
+    // Pre-fill patient details
+    const nk = (snapped || answer).toLowerCase().trim();
+    if (state.patients[nk]) {
+      const p = state.patients[nk];
+      pendingEntry.phn = p.phn || '';
+      pendingEntry.dob = p.dob || '';
+      pendingEntry.gender = p.gender || '';
+      pendingEntry.attachment = p.attachment || '';
+    }
+  }
   else if (field === 'duration') pendingEntry.duration = parseDurationToMinutes(answer);
   else if (field === 'appointment_type') pendingEntry.appointment_type = answer;
   else if (field === 'reason') pendingEntry.reason = cleanReason(answer);
