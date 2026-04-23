@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v4.9</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.0</div>
   </div>
 </div>
 
@@ -1155,6 +1155,7 @@ Return ONLY valid JSON with exactly these fields:
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
   "diagnosis_code": "ICD-10 code if clearly stated, otherwise empty string",
+  "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
   "billing_code": "MSP billing code if mentioned, otherwise empty string",
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
@@ -1420,6 +1421,7 @@ function openManualEntry() {
     reason: '',
     diagnosis_code: '',
     billing_code: '',
+    attachment: '',
     fee: '',
     phn: '',
     dob: '',
@@ -1466,6 +1468,7 @@ function showPreview() {
     { key: 'dob', label: 'Date of birth', type: 'text', full: false },
     { key: 'gender', label: 'Gender', type: 'text', full: false },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
+    { key: 'attachment', label: 'Attachment', type: 'text', full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat((state.settings.icd_codes || []).slice().sort((a,b) => { const da = a.includes('–')?a.split('–')[1].trim():a; const db = b.includes('–')?b.split('–')[1].trim():b; return da.localeCompare(db); })), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
   ];
@@ -1588,7 +1591,7 @@ function setSubmitLoading(on) {
 //  TABLE RENDERING
 // ════════════════════════════════════════
 function getColumns() {
-  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','ICD code','Billing code','Claim status','Visit'];
+  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','ICD code','Billing code','Attachment','Claim status','Visit'];
   return base.concat(state.settings.custom_fields);
 }
 
@@ -1615,6 +1618,7 @@ const COL_KEYS = {
   'Type': 'appointment_type', 'Reason': 'reason',
   'Billing code': 'billing_code',
   'ICD code': 'diagnosis_code',
+  'Attachment': 'attachment',
   'Visit': 'total_visits'
 };
 // Time column sorts by full date+time chronologically
@@ -1819,6 +1823,7 @@ function renderTable() {
       <td>${esc(r.reason)}</td>
       <td class="td-muted">${esc(r.diagnosis_code)}</td>
       <td>${esc(r.billing_code)}</td>
+      <td>${esc(r.attachment)}</td>
       <td style="text-align:center;cursor:pointer;padding:7px 16px" onclick="event.stopPropagation();openStatusMenu(event,${i})" title="Click to change status"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#27ae60':claimStatus==='Rejected'?'#e74c3c':claimStatus==='Pending'?'#e67e22':'#bdc3c7'}"></span></td>
       <td style="text-align:center"><span class="visits-pill">${getVisitNumber(r, i)}</span></td>
       ${customCells}
@@ -1856,6 +1861,7 @@ function openEdit(index) {
     { key: 'gender', label: 'Gender', type: 'text' },
     { key: 'phone', label: 'Phone', type: 'text' },
     { key: 'billing_code', label: 'Billing code', type: 'select', options: [''].concat(state.settings.billing_codes) },
+    { key: 'attachment', label: 'Attachment', type: 'text' },
     { key: 'fee', label: 'Fee ($)', type: 'text' },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []) },
     { key: 'referred_by', label: 'Referred by', type: 'text' },
@@ -2103,6 +2109,7 @@ function newAppointmentFromPatient(nameKey) {
     reason: '',
     diagnosis_code: '',
     billing_code: '',
+    attachment: '',
     fee: '',
     phn:    p.phn    || '',
     dob:    p.dob    || '',
@@ -2372,6 +2379,7 @@ Proceed?`;
       gender:           row['Gender']           || '',
       phone:            row['Phone']            || '',
       billing_code:     row['Billing code']     || '',
+      attachment:       row['Attachment']        || '',
       fee:              row['Fee']              || '',
       diagnosis_code:   row['Diagnosis code']   || '',
       referred_by:      row['Referred by']      || '',
@@ -2417,11 +2425,11 @@ Proceed?`;
 async function exportCSV() {
   if (state.log.length === 0) { alert('No appointments to export yet.'); return; }
   const customFields = state.settings.custom_fields || [];
-  const headers = ['Date','Time','Patient name','PHN','DOB','Gender','Phone','Duration','Appointment type','LTC facility','Reason','Diagnosis code','Billing code','Fee','Referred by','Follow-up','Claimed','Claim status','Notes','Total visits'].concat(customFields);
+  const headers = ['Date','Time','Patient name','PHN','DOB','Gender','Phone','Duration','Appointment type','LTC facility','Reason','Diagnosis code','Billing code','Attachment','Fee','Referred by','Follow-up','Claimed','Claim status','Notes','Total visits'].concat(customFields);
   const rows = state.log.map(r => [
     r.date, r.time, r.patient_name, r.phn, r.dob, r.gender, r.phone,
     r.duration, r.appointment_type, r.ltc_facility, r.reason,
-    r.diagnosis_code, r.billing_code, r.fee, r.referred_by, r.follow_up,
+    r.diagnosis_code, r.billing_code, r.attachment, r.fee, r.referred_by, r.follow_up,
     r.claimed ? 'Yes' : 'No', r.claim_status, r.notes, r.total_visits || 1
   ].concat(customFields.map(cf => r.custom ? r.custom[cf] : '')));
 
