@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.9</div>
   </div>
 </div>
 
@@ -624,7 +624,7 @@ const DEFAULT_STATE = {
     lock_minutes: 30,
     api_key: 'PASTE_YOUR_API_KEY_HERE',
     appt_types: ['In-person','Phone','Video','Home visit','LTC visit'],
-    ltc_facilities: ['Facility 1','Facility 2','Facility 3','Facility 4'],
+    ltc_facilities: ['Oyster Harbour','Sunridge','Cerwydden'],
     billing_codes: [
       '00100 – GP office visit',
       '00101 – Telephone consultation',
@@ -1165,6 +1165,11 @@ async function migrateSettings() {
   let changed = false;
   // Always refresh ICD codes from the latest default list
   state.settings.icd_codes = DEFAULT_STATE.settings.icd_codes.slice();
+  // Migrate facilities if still using old placeholder names
+  if (!state.settings.ltc_facilities || 
+      state.settings.ltc_facilities.some(f => f.startsWith('Facility'))) {
+    state.settings.ltc_facilities = DEFAULT_STATE.settings.ltc_facilities.slice();
+  }
   changed = true;
   if (changed) await saveState();
 }
@@ -1512,9 +1517,9 @@ Return ONLY valid JSON with exactly these fields:
   "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
-  "diagnosis_code": "ICD or diagnostic code if mentioned anywhere — look for patterns like 'ICD code 799.3', 'diagnosis 401', 'code is 250', or any number/letter code that matches a diagnostic code. Extract just the code number e.g. '799.3'. Empty string if not mentioned.",
+  "diagnosis_code": "diagnostic/ICD code if mentioned — recognise both 'X is the diagnostic code' and 'diagnostic code is X' and 'ICD code X'. Can be a code number (e.g. '595') OR a disease name (e.g. 'cystitis', 'urethritis'). Extract whatever was given verbatim. Empty string if not mentioned.",
   "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
-  "billing_code": "MSP billing code if mentioned, otherwise empty string",
+  "billing_code": "MSP encounter code if mentioned — recognise both 'encounter code is X' and 'X is the encounter code'. Extract just the code number e.g. '00102'. Empty string if not mentioned.",
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
@@ -1548,7 +1553,19 @@ Return ONLY valid JSON with exactly these fields:
       time: parsed.time || timeStr,
       duration: parseDurationToMinutes(parsed.duration),
       appointment_type: fuzzyMatch(parsed.appointment_type, state.settings.appt_types) || parsed.appointment_type || '',
-      ltc_facility: fuzzyMatch(parsed.ltc_facility, state.settings.ltc_facilities) || parsed.ltc_facility || '',
+      ltc_facility: (() => {
+        if (!parsed.ltc_facility) return '';
+        // Levenshtein snap to known facility list
+        const facs = state.settings.ltc_facilities || [];
+        if (!facs.length) return parsed.ltc_facility;
+        let best = ''; let bestScore = Infinity;
+        facs.forEach(f => {
+          const dist = levenshtein(parsed.ltc_facility.toLowerCase(), f.toLowerCase());
+          if (dist < bestScore) { bestScore = dist; best = f; }
+        });
+        // Accept if reasonably close (within 60% of facility name length)
+        return bestScore <= Math.ceil(best.length * 0.6) ? best : parsed.ltc_facility;
+      })(),
       reason: parsed.reason || '',
       diagnosis_code: (() => {
         // 1. Try fuzzy match on what AI extracted
