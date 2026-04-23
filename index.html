@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.4</div>
   </div>
 </div>
 
@@ -1389,7 +1389,7 @@ function autofillFromPatientRecord(field, value) {
   pendingEntry.phone  = p.phone  || pendingEntry.phone;
 
   // Update the visible input fields in the grid without full re-render
-  const fields = { patient_name: displayName, phn: p.phn||'', dob: p.dob||'', gender: p.gender||'' };
+  const fields = { patient_name: displayName, phn: p.phn||'', dob: p.dob||'', gender: p.gender||'', attachment: p.attachment||'' };
   Object.entries(fields).forEach(([key, val]) => {
     const el = document.querySelector('#previewGrid input[data-key="' + key + '"]');
     if (el && val) el.value = val;
@@ -1544,19 +1544,21 @@ async function confirmAppointment() {
   const nameKey = pendingEntry.patient_name.toLowerCase().trim();
   if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
   const p = state.patients[nameKey];
-  if (pendingEntry.phn)    p.phn    = pendingEntry.phn;
-  if (pendingEntry.dob)    p.dob    = pendingEntry.dob;
-  if (pendingEntry.gender) p.gender = pendingEntry.gender;
-  if (pendingEntry.phone)  p.phone  = pendingEntry.phone;
+  if (pendingEntry.phn)        p.phn        = pendingEntry.phn;
+  if (pendingEntry.dob)        p.dob        = pendingEntry.dob;
+  if (pendingEntry.gender)     p.gender     = pendingEntry.gender;
+  if (pendingEntry.phone)      p.phone      = pendingEntry.phone;
+  if (pendingEntry.attachment) p.attachment = pendingEntry.attachment;
   p.visits = (p.visits || 0) + 1;
   p.last_seen = pendingEntry.date;
 
   // Sync patient-level fields to all previous log entries for this patient
   state.log.forEach(entry => {
     if ((entry.patient_name || '').toLowerCase().trim() === nameKey) {
-      if (pendingEntry.phn)    entry.phn    = pendingEntry.phn;
-      if (pendingEntry.dob)    entry.dob    = pendingEntry.dob;
-      if (pendingEntry.gender) entry.gender = pendingEntry.gender;
+      if (pendingEntry.phn)        entry.phn        = pendingEntry.phn;
+      if (pendingEntry.dob)        entry.dob        = pendingEntry.dob;
+      if (pendingEntry.gender)     entry.gender     = pendingEntry.gender;
+      if (pendingEntry.attachment) entry.attachment = pendingEntry.attachment;
     }
   });
 
@@ -1997,6 +1999,7 @@ function openPatientEditor(nameKey) {
       <div class="editor-field"><label>PHN</label><input type="text" id="ep-phn" value="${p.phn || ''}" /></div>
       <div class="editor-field"><label>Date of birth</label><input type="text" id="ep-dob" value="${p.dob || ''}" placeholder="YYYY-MM-DD" /></div>
       <div class="editor-field"><label>Gender</label><input type="text" id="ep-gender" value="${p.gender || ''}" /></div>
+      <div class="editor-field full"><label>Attachment</label><input type="text" id="ep-attachment" value="${p.attachment || ''}" /></div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn-primary" onclick="savePatientEditor('${nameKey}')">Save</button>
@@ -2009,20 +2012,23 @@ function openPatientEditor(nameKey) {
 }
 
 async function savePatientEditor(nameKey) {
-  const phn    = document.getElementById('ep-phn').value;
-  const dob    = document.getElementById('ep-dob').value;
-  const gender = document.getElementById('ep-gender').value;
+  const phn        = document.getElementById('ep-phn').value;
+  const dob        = document.getElementById('ep-dob').value;
+  const gender     = document.getElementById('ep-gender').value;
+  const attachment = document.getElementById('ep-attachment').value;
 
-  state.patients[nameKey].phn    = phn;
-  state.patients[nameKey].dob    = dob;
-  state.patients[nameKey].gender = gender;
+  state.patients[nameKey].phn        = phn;
+  state.patients[nameKey].dob        = dob;
+  state.patients[nameKey].gender     = gender;
+  state.patients[nameKey].attachment = attachment;
 
   // Sync updated patient fields to every matching log entry
   state.log.forEach(entry => {
     if ((entry.patient_name || '').toLowerCase().trim() === nameKey) {
-      if (phn)    entry.phn    = phn;
-      if (dob)    entry.dob    = dob;
-      if (gender) entry.gender = gender;
+      if (phn)        entry.phn        = phn;
+      if (dob)        entry.dob        = dob;
+      if (gender)     entry.gender     = gender;
+      if (attachment) entry.attachment = attachment;
     }
   });
 
@@ -2048,6 +2054,7 @@ function openNewPatientForm() {
       <div class="editor-field"><label>PHN</label><input type="text" id="np-phn" /></div>
       <div class="editor-field"><label>Date of birth</label><input type="text" id="np-dob" placeholder="YYYY-MM-DD" /></div>
       <div class="editor-field"><label>Gender</label><input type="text" id="np-gender" /></div>
+      <div class="editor-field full"><label>Attachment</label><input type="text" id="np-attachment" /></div>
     </div>
     <div style="display:flex;gap:6px">
       <button class="btn-primary" onclick="saveNewPatient()">Save patient</button>
@@ -2071,9 +2078,11 @@ async function saveNewPatient() {
   const dob    = document.getElementById('np-dob').value.trim();
   const gender = document.getElementById('np-gender').value.trim();
   const phone  = document.getElementById('np-phone').value.trim();
-  if (phn)    p.phn    = phn;
-  if (dob)    p.dob    = dob;
-  if (gender) p.gender = gender;
+  const npAttachment = document.getElementById('np-attachment') ? document.getElementById('np-attachment').value.trim() : '';
+  if (phn)          p.phn        = phn;
+  if (dob)          p.dob        = dob;
+  if (gender)       p.gender     = gender;
+  if (npAttachment) p.attachment = npAttachment;
   await saveState();
   closePatientEditor();
   renderDirectory();
@@ -2302,9 +2311,58 @@ function appendChatMsg(role, text) {
 // ════════════════════════════════════════
 //  EXPORT
 // ════════════════════════════════════════
+async function importPatientCSV(headers, lines) {
+  const csvRows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = [];
+    let current = ''; let inQuotes = false;
+    for (const ch of lines[i]) {
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { cols.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+    cols.push(current.trim());
+    if (cols.length < 1) continue;
+    const row = {};
+    headers.forEach((h, i) => { row[h] = cols[i] || ''; });
+    // Accept "Last name, First name" or "Patient name" column
+    const name = row['Patient name'] || row['Last name, First name'] ||
+                 (row['Last name'] && row['First name'] ? row['Last name'] + ', ' + row['First name'] : '') ||
+                 row['Name'] || '';
+    if (name.trim()) csvRows.push({ ...row, _name: name.trim() });
+  }
+
+  if (csvRows.length === 0) { alert('No valid patient rows found.'); return; }
+
+  const newPatients = csvRows.filter(r => !state.patients[r._name.toLowerCase()]);
+  const existing = csvRows.length - newPatients.length;
+
+  let msg = `Found ${csvRows.length} patient${csvRows.length !== 1 ? 's' : ''} in this file:\n\n`;
+  msg += `• ${newPatients.length} new patient${newPatients.length !== 1 ? 's' : ''} will be added\n`;
+  if (existing > 0) msg += `• ${existing} already exist and will be skipped\n`;
+  msg += `\nNo appointments will be created. Proceed?`;
+
+  if (newPatients.length === 0) { alert('All patients in this file already exist. Nothing to import.'); return; }
+  if (!confirm(msg)) return;
+
+  newPatients.forEach(row => {
+    const nameKey = row._name.toLowerCase();
+    if (!state.patients[nameKey]) state.patients[nameKey] = { visits: 0 };
+    const p = state.patients[nameKey];
+    if (row['PHN'])        p.phn        = row['PHN'];
+    if (row['DOB'])        p.dob        = row['DOB'];
+    if (row['Gender'])     p.gender     = row['Gender'];
+    if (row['Attachment']) p.attachment = row['Attachment'];
+  });
+
+  await saveState();
+  renderDirectory();
+  alert(`Done! ${newPatients.length} patient${newPatients.length !== 1 ? 's' : ''} imported successfully.`);
+}
+
 async function importCSV(event) {
   const file = event.target.files[0];
-  event.target.value = ''; // reset so same file can be re-imported
+  event.target.value = '';
   if (!file) return;
 
   const text = await file.text();
@@ -2313,6 +2371,10 @@ async function importCSV(event) {
 
   // Parse header row
   const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+
+  // Auto-detect: patient list vs appointment log
+  const isPatientImport = headers.includes('PHN') && !headers.includes('Date') && !headers.includes('Time');
+  if (isPatientImport) { await importPatientCSV(headers, lines); return; }
 
   // Parse data rows
   const csvRows = [];
