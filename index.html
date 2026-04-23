@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.0</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.2</div>
   </div>
 </div>
 
@@ -568,6 +568,7 @@
           <h4>Data</h4>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button onclick="exportCSV()">⬇ Export billing_log CSV</button>
+            <button class="btn-danger" onclick="confirmClearLog()">Clear appointment log</button>
             <button class="btn-danger" onclick="confirmClearData()">Clear all data</button>
           </div>
           <p style="font-size:12px;color:var(--text-light);margin-top:8px">Tip: Set your browser's default download folder to your Documents/Clinic folder so exports always land in the right place.</p>
@@ -1149,7 +1150,7 @@ Today: ${dateStr} at ${timeStr}
 
 Return ONLY valid JSON with exactly these fields:
 {
-  "patient_name": "full name, properly capitalized",
+  "patient_name": "full name in Last, First format (e.g. 'Simmons, Gene'). Properly capitalized. If only one name given, use as-is.",
   "duration": "appointment duration as an integer number of MINUTES ONLY — no units, just the number. Convert hours to minutes (1 hour=60, 1.5 hours=90, 2 hours=120). e.g. '20 min' → 20, 'half an hour' → 30, 'an hour' → 60. Empty string if not mentioned.",
   "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
@@ -1380,7 +1381,7 @@ function autofillFromPatientRecord(field, value) {
 
   // Fill in patient fields in pendingEntry
   const { nameKey, p } = match;
-  const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  const displayName = nameKey.split(',').map(part => part.trim().replace(/\b\w/g, c => c.toUpperCase())).join(', ');
   pendingEntry.patient_name = displayName;
   pendingEntry.phn    = p.phn    || pendingEntry.phn;
   pendingEntry.dob    = p.dob    || pendingEntry.dob;
@@ -1972,7 +1973,7 @@ function renderDirectory() {
   }
   list.innerHTML = names.map(nameKey => {
     const p = state.patients[nameKey];
-    const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+    const displayName = nameKey.split(',').map(part => part.trim().replace(/\b\w/g, c => c.toUpperCase())).join(', ');
     return `<div class="patient-card" onclick="openPatientEditor('${nameKey}')">
       <div class="patient-card-name">${displayName}</div>
       <div class="patient-card-meta">
@@ -1987,7 +1988,7 @@ function renderDirectory() {
 
 function openPatientEditor(nameKey) {
   const p = state.patients[nameKey];
-  const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  const displayName = nameKey.split(',').map(part => part.trim().replace(/\b\w/g, c => c.toUpperCase())).join(', ');
   const ed = document.getElementById('patientEditor');
   ed.style.display = 'block';
   ed.innerHTML = `
@@ -2079,7 +2080,7 @@ async function saveNewPatient() {
 }
 
 async function deletePatient(nameKey) {
-  const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  const displayName = nameKey.split(',').map(part => part.trim().replace(/\b\w/g, c => c.toUpperCase())).join(', ');
   const entryCount = state.log.filter(r => (r.patient_name || '').toLowerCase().trim() === nameKey).length;
   const msg = `Delete ${displayName}?\n\nThis will also permanently delete ${entryCount} appointment${entryCount !== 1 ? 's' : ''} from your log.\n\nThis cannot be undone.`;
   if (!confirm(msg)) return;
@@ -2097,7 +2098,7 @@ async function deletePatient(nameKey) {
 
 function newAppointmentFromPatient(nameKey) {
   const p = state.patients[nameKey];
-  const displayName = nameKey.replace(/\b\w/g, c => c.toUpperCase());
+  const displayName = nameKey.split(',').map(part => part.trim().replace(/\b\w/g, c => c.toUpperCase())).join(', ');
   const now = new Date();
   pendingEntry = {
     patient_name: displayName,
