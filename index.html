@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.1</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.2</div>
   </div>
 </div>
 
@@ -1376,6 +1376,7 @@ function matchKnownPatient(parsedName) {
     if (score > bestScore) { bestScore = score; bestKey = nameKey; }
   });
   // Return best match regardless of score — patient is always from the list
+  if (bestKey) return titleCaseName(bestKey);
   if (bestKey) return bestKey.split(',').map(p => p.trim().replace(/\w/g, c => c.toUpperCase())).join(', ');
   return null;
 }
