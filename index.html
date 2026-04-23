@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.5</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.6</div>
   </div>
 </div>
 
@@ -1327,6 +1327,55 @@ function stopMic() {
 //  NOTE SUBMISSION & AI PARSING
 // ════════════════════════════════════════
 
+// Simple string similarity (0-1) based on common characters
+function stringSimilarity(a, b) {
+  a = a.toLowerCase().trim();
+  b = b.toLowerCase().trim();
+  if (a === b) return 1;
+  if (!a || !b) return 0;
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  let matches = 0;
+  for (let i = 0; i < shorter.length; i++) {
+    if (longer.includes(shorter[i])) matches++;
+  }
+  return matches / longer.length;
+}
+
+// Match a parsed name against known patients — returns best match if similar enough
+function matchKnownPatient(parsedName) {
+  if (!parsedName || !state.patients) return '';
+  const parsed = parsedName.toLowerCase().trim();
+  // Split parsed name into parts for matching
+  const parsedParts = parsed.replace(',', '').split(/\s+/);
+  
+  let bestKey = '';
+  let bestScore = 0;
+
+  Object.keys(state.patients).forEach(nameKey => {
+    const knownParts = nameKey.replace(',', '').split(/\s+/);
+    
+    // Score: how well do the name parts match across both orderings
+    let score = 0;
+    parsedParts.forEach(pp => {
+      const best = Math.max(...knownParts.map(kp => stringSimilarity(pp, kp)));
+      score += best;
+    });
+    score = score / Math.max(parsedParts.length, knownParts.length);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestKey = nameKey;
+    }
+  });
+
+  // Only snap if score is good enough (0.65 = fairly loose)
+  if (bestScore >= 0.65 && bestKey) {
+    return bestKey.split(',').map(p => p.trim().replace(/\w/g, c => c.toUpperCase())).join(', ');
+  }
+  return '';
+}
+
 // Fuzzy match: find the best option from a list for a parsed value
 // Tries: exact match, starts-with, contains, then partial word overlap
 function fuzzyMatch(parsed, options) {
@@ -1471,7 +1520,7 @@ Return ONLY valid JSON with exactly these fields:
   "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
-  "diagnosis_code": "ICD-10 code if clearly stated, otherwise empty string",
+  "diagnosis_code": "ICD or diagnostic code if mentioned anywhere — look for patterns like 'ICD code 799.3', 'diagnosis 401', 'code is 250', or any number/letter code that matches a diagnostic code. Extract just the code number e.g. '799.3'. Empty string if not mentioned.",
   "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
   "billing_code": "MSP billing code if mentioned, otherwise empty string",
   "fee": "fee amount as number if mentioned, otherwise empty string",
@@ -1498,15 +1547,35 @@ Return ONLY valid JSON with exactly these fields:
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 
+    // Phonetic name matching against known patients
+    const matchedName = matchKnownPatient(parsed.patient_name || '');
+
     pendingEntry = {
-      patient_name: parsed.patient_name || '',
+      patient_name: matchedName || parsed.patient_name || '',
       date: parsed.date || dateStr,
       time: parsed.time || timeStr,
       duration: parseDurationToMinutes(parsed.duration),
       appointment_type: fuzzyMatch(parsed.appointment_type, state.settings.appt_types) || parsed.appointment_type || '',
       ltc_facility: fuzzyMatch(parsed.ltc_facility, state.settings.ltc_facilities) || parsed.ltc_facility || '',
       reason: parsed.reason || '',
-      diagnosis_code: fuzzyMatch(parsed.diagnosis_code, state.settings.icd_codes || []) || inferIcdCode(parsed.reason, parsed.notes, note) || parsed.diagnosis_code || '',
+      diagnosis_code: (() => {
+        // 1. Try fuzzy match on what AI extracted
+        const fromParsed = fuzzyMatch(parsed.diagnosis_code, state.settings.icd_codes || []);
+        if (fromParsed) return fromParsed;
+        // 2. Try regex sweep of raw note for ICD-style codes (e.g. "799.3", "V40.3", "3140")
+        const codeMatch = note.match(/\b([A-Z]?\d{2,4}\.?\d{0,2})\b/g);
+        if (codeMatch) {
+          for (const c of codeMatch) {
+            const fm = fuzzyMatch(c, state.settings.icd_codes || []);
+            if (fm) return fm;
+            // Direct code match in icd list
+            const direct = (state.settings.icd_codes || []).find(ic => ic.includes('– ' + c) || ic.endsWith(' ' + c));
+            if (direct) return direct;
+          }
+        }
+        // 3. Infer from reason/notes
+        return inferIcdCode(parsed.reason, parsed.notes, note) || parsed.diagnosis_code || '';
+      })(),
       billing_code: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) ||
                    inferBillingCode(parsed.reason, parsed.notes, note) ||
                    parsed.billing_code || '',
