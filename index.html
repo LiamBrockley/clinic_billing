@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v5.3</div>
   </div>
 </div>
 
@@ -2218,6 +2218,18 @@ async function saveLockMinutes() {
   resetInactivity();
 }
 document.getElementById('lockMinutes').addEventListener('change', saveLockMinutes);
+
+async function confirmClearLog() {
+  const count = state.log.length;
+  if (count === 0) { alert('The appointment log is already empty.'); return; }
+  if (!confirm(`This will permanently delete all ${count} appointment${count !== 1 ? 's' : ''} from your log. Your patient records will be kept. This cannot be undone.`)) return;
+  if (!confirm(`Are you absolutely sure? All ${count} appointment${count !== 1 ? 's' : ''} will be deleted.`)) return;
+  state.log = [];
+  await saveState();
+  renderTable();
+  updateDailyBadge();
+  alert('Appointment log cleared. Patient records have been kept.');
+}
 
 function confirmClearData() {
   if (confirm('This will permanently delete ALL appointments and patient records. This cannot be undone. Are you sure?')) {
