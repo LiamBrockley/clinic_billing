@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.3</div>
   </div>
 </div>
 
@@ -1422,11 +1422,10 @@ function inferIcdCode(reason, notes, rawNote) {
   if (!haystack.trim()) return '';
   let bestMatch = ''; let bestScore = 0;
   state.settings.icd_codes.forEach(code => {
-    const descPart = code.includes('–') ? code.split('–')[1].trim().toLowerCase()
-                   : code.includes('-') ? code.split('-').slice(1).join('-').trim().toLowerCase()
+    // Our format is "Name – Code" so match against the NAME (left of dash)
+    const namePart = code.includes('–') ? code.split('–')[0].trim().toLowerCase()
                    : code.toLowerCase();
-    // Split on spaces and punctuation, keep words 3+ chars
-    const descWords = descPart.split(/[\s,;().]+/).filter(w => w.length >= 3 && w !== 'and' && w !== 'the');
+    const descWords = namePart.split(/[\s,;().\/]+/).filter(w => w.length >= 3 && w !== 'and' && w !== 'the' && !/^\d+$/.test(w));
     if (!descWords.length) return;
     const matchCount = descWords.filter(w => haystack.includes(w)).length;
     const ratio = matchCount / descWords.length;
