@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.8</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.9</div>
   </div>
 </div>
 
@@ -1948,14 +1948,20 @@ function showPreview() {
 
 async function confirmAppointment() {
   if (!pendingEntry) return;
-  // Sync any manual edits from preview inputs
+  // Sync manual edits from preview, collecting billing codes into array
+  const previewCodes = [];
   document.querySelectorAll('#previewGrid .pf-input, #previewGrid .pf-select').forEach(el => {
     const key = el.dataset.key;
     const ck = el.dataset.customKey;
-    if (ck) pendingEntry.custom[ck] = el.value;
-    else if (key) pendingEntry[key] = el.value;
+    if (key === 'billing_code1' || key === 'billing_code2' || key === 'billing_code3') {
+      if (el.value) previewCodes.push(el.value);
+    } else if (ck) {
+      pendingEntry.custom[ck] = el.value;
+    } else if (key) {
+      pendingEntry[key] = el.value;
+    }
   });
-
+  if (previewCodes.length > 0) pendingEntry.billing_codes = previewCodes;
 
   // Update patient record
   const nameKey = pendingEntry.patient_name.toLowerCase().trim();
