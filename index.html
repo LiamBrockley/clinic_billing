@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.8</div>
   </div>
 </div>
 
@@ -1526,7 +1526,7 @@ Return ONLY valid JSON with exactly these fields:
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
   "diagnosis_code": "diagnostic/ICD condition if explicitly stated — recognise phrases like 'diagnosis was X', 'X is the diagnosis', 'diagnostic code is X', 'ICD code X', 'her diagnosis was X', 'his diagnosis was X'. Extract ONLY the condition name or code number (e.g. 'epilepsy', '595'). Do NOT put sentence fragments here. Empty string if not explicitly stated as a diagnosis.",
   "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
-  "billing_code": "MSP encounter code if mentioned — recognise both 'encounter code is X' and 'X is the encounter code'. Extract just the code number e.g. '00102'. Empty string if not mentioned.",
+  "billing_code": "MSP encounter code if mentioned — recognise phrases like 'encounter code is X', 'X is the encounter code', 'encounter code X'. Extract just the code number e.g. '00102'. If multiple encounter codes mentioned, return the first one. Empty string if not mentioned.",
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
@@ -1883,7 +1883,9 @@ function showPreview() {
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'dob', label: 'Date of birth', type: 'text', full: false },
     { key: 'gender', label: 'Gender', type: 'text', full: false },
-    { key: 'billing_codes', label: 'Encounter codes (up to 3)', type: 'multicode', full: true },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 1, full: false },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 2, full: false },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 3, full: false },
     { key: 'attachment', label: 'Attachment', type: 'text', full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat((state.settings.icd_codes || []).slice().sort((a,b) => { const da = a.includes('–')?a.split('–')[1].trim():a; const db = b.includes('–')?b.split('–')[1].trim():b; return da.localeCompare(db); })), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
