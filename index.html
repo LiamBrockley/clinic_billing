@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.5</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v6.7</div>
   </div>
 </div>
 
@@ -1836,7 +1836,7 @@ function openManualEntry() {
     ltc_facility: '',
     reason: '',
     diagnosis_code: '',
-    billing_code: '',
+    billing_codes: [],
     attachment: '',
     fee: '',
     phn: '',
@@ -1883,7 +1883,7 @@ function showPreview() {
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'dob', label: 'Date of birth', type: 'text', full: false },
     { key: 'gender', label: 'Gender', type: 'text', full: false },
-    { key: 'billing_code', label: 'Encounter code', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
+    { key: 'billing_codes', label: 'Encounter codes (up to 3)', type: 'multicode', full: true },
     { key: 'attachment', label: 'Attachment', type: 'text', full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat((state.settings.icd_codes || []).slice().sort((a,b) => { const da = a.includes('–')?a.split('–')[1].trim():a; const db = b.includes('–')?b.split('–')[1].trim():b; return da.localeCompare(db); })), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
@@ -2240,7 +2240,7 @@ function renderTable() {
       <td>${esc(r.appointment_type)}${r.ltc_facility ? '<br><span style="font-size:10px;color:var(--text-light)">'+esc(r.ltc_facility)+'</span>' : ''}</td>
       <td>${esc(r.reason)}</td>
       <td class="td-muted">${esc(r.diagnosis_code)}</td>
-      <td>${esc(r.billing_code)}</td>
+      <td>${esc(Array.isArray(r.billing_codes) ? r.billing_codes.map(c=>c.split('–')[0].trim()).join(', ') : (r.billing_code||''))}</td>
       <td>${esc(r.attachment)}</td>
       <td style="text-align:center;cursor:pointer;padding:7px 16px" onclick="event.stopPropagation();openStatusMenu(event,${i})" title="Click to change status"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#27ae60':claimStatus==='Rejected'?'#e74c3c':claimStatus==='Pending'?'#e67e22':'#bdc3c7'}"></span></td>
       <td style="text-align:center"><span class="visits-pill">${getVisitNumber(r, i)}</span></td>
@@ -2277,13 +2277,11 @@ function openEdit(index) {
     { key: 'phn', label: 'PHN', type: 'text' },
     { key: 'dob', label: 'Date of birth', type: 'text' },
     { key: 'gender', label: 'Gender', type: 'text' },
-    { key: 'phone', label: 'Phone', type: 'text' },
-    { key: 'billing_code', label: 'Encounter code', type: 'select', options: [''].concat(state.settings.billing_codes) },
     { key: 'attachment', label: 'Attachment', type: 'text' },
-    { key: 'fee', label: 'Fee ($)', type: 'text' },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []) },
-    { key: 'referred_by', label: 'Referred by', type: 'text' },
-    { key: 'follow_up', label: 'Follow-up', type: 'text' },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 1 },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 2 },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 3 },
     { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
     { key: 'notes', label: 'Notes', type: 'textarea', full: true },
   ];
@@ -2297,7 +2295,13 @@ function openEdit(index) {
     const div = document.createElement('div');
     div.className = 'modal-field' + (f.full ? ' full' : '');
     div.innerHTML = `<label>${f.label}</label>`;
-    const val = f.isCustom ? (r.custom ? r.custom[f.customKey] : '') : (r[f.key] || '');
+    let val;
+    if (f.isBillingCode) {
+      const codes = Array.isArray(r.billing_codes) ? r.billing_codes : (r.billing_code ? [r.billing_code] : []);
+      val = codes[f.isBillingCode - 1] || '';
+    } else {
+      val = f.isCustom ? (r.custom ? r.custom[f.customKey] : '') : (r[f.key] || '');
+    }
     if (f.type === 'select') {
       const sel = document.createElement('select');
       sel.dataset.key = f.key;
@@ -2331,12 +2335,16 @@ function openEdit(index) {
 
 async function saveEdit() {
   const r = state.log[editingIndex];
+  const newCodes = [];
   document.querySelectorAll('#editModalGrid input[data-key], #editModalGrid select[data-key], #editModalGrid textarea[data-key]').forEach(el => {
     const key = el.dataset.key;
     const ck = el.dataset.customKey;
-    if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
+    if (key === 'billing_code1' || key === 'billing_code2' || key === 'billing_code3') {
+      if (el.value) newCodes.push(el.value);
+    } else if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
     else if (key) r[key] = el.value;
   });
+  r.billing_codes = newCodes;
 
   // Update patient record
   const nameKey = (r.patient_name || '').toLowerCase().trim();
@@ -2533,7 +2541,7 @@ function newAppointmentFromPatient(nameKey) {
     ltc_facility: '',
     reason: '',
     diagnosis_code: '',
-    billing_code: '',
+    billing_codes: [],
     attachment: '',
     fee: '',
     phn:    p.phn    || '',
@@ -2919,8 +2927,7 @@ async function exportCSV() {
   const rows = state.log.map(r => [
     r.date, r.time, r.patient_name, r.phn, r.dob, r.gender, r.phone,
     r.duration, r.appointment_type, r.ltc_facility, r.reason,
-    r.diagnosis_code, r.billing_code, r.attachment, r.fee, r.referred_by, r.follow_up,
-    r.claimed ? 'Yes' : 'No', r.claim_status, r.notes, r.total_visits || 1
+    r.diagnosis_code, (Array.isArray(r.billing_codes) ? r.billing_codes.map(c=>c.split('–')[0].trim()).join(', ') : (r.billing_code||'')), r.attachment, r.claim_status, r.notes, r.total_visits || 1
   ].concat(customFields.map(cf => r.custom ? r.custom[cf] : '')));
 
   const csv = [headers, ...rows].map(row => row.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
