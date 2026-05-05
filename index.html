@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.5</div>
   </div>
 </div>
 
@@ -1709,7 +1709,6 @@ Return ONLY valid JSON with exactly these fields:
     const text = data.content.map(c => c.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
-    console.log('PARSED:', JSON.stringify({bc1:parsed.billing_code,bc2:parsed.billing_code2,bc3:parsed.billing_code3,diag:parsed.diagnosis_code}));
 
     // Always snap to known patient — dictation only ever creates appointments for existing patients
     const matchedName = matchKnownPatient(parsed.patient_name || '') || titleCaseName(parsed.patient_name || '') || '';
@@ -1752,9 +1751,27 @@ Return ONLY valid JSON with exactly these fields:
         // 3. Infer from reason/notes
         return inferIcdCode(parsed.reason, parsed.notes, note) || parsed.diagnosis_code || '';
       })(),
-      billing_code: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) ||
-                   inferBillingCode(parsed.reason, parsed.notes, note) ||
-                   parsed.billing_code || '',
+      billing_codes: (() => {
+        const allCodes = [...new Set([...(state.settings.billing_codes || []), ...DEFAULT_STATE.settings.billing_codes])];
+        const codes = [];
+        [parsed.billing_code, parsed.billing_code2, parsed.billing_code3].forEach(raw => {
+          if (!raw) return;
+          const trimmed = raw.trim();
+          // 1. Direct code number match — split on en-dash, compare left side
+          let matched = allCodes.find(c => c.split('–')[0].trim() === trimmed);
+          // 2. fuzzyMatch
+          if (!matched) matched = fuzzyMatch(trimmed, allCodes);
+          // 3. startsWith
+          if (!matched) matched = allCodes.find(c => c.startsWith(trimmed));
+          if (matched && !codes.includes(matched)) codes.push(matched);
+        });
+        // Infer from reason if nothing explicit
+        if (codes.length === 0) {
+          const inferred = inferBillingCode(parsed.reason, parsed.notes, note);
+          if (inferred) codes.push(inferred);
+        }
+        return codes;
+      })(),
       fee: parsed.fee || '',
       phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
       dob: parsed.dob || '',
