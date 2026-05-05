@@ -1709,6 +1709,7 @@ Return ONLY valid JSON with exactly these fields:
     const text = data.content.map(c => c.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
+    console.log('AI parsed:', JSON.stringify({bc1: parsed.billing_code, bc2: parsed.billing_code2, bc3: parsed.billing_code3, diag: parsed.diagnosis_code}));
 
     // Always snap to known patient — dictation only ever creates appointments for existing patients
     const matchedName = matchKnownPatient(parsed.patient_name || '') || titleCaseName(parsed.patient_name || '') || '';
