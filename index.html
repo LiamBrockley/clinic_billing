@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.0</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.1</div>
   </div>
 </div>
 
@@ -1683,7 +1683,9 @@ Return ONLY valid JSON with exactly these fields:
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
   "diagnosis_code": "diagnostic/ICD condition if explicitly stated — recognise phrases like 'diagnosis was X', 'X is the diagnosis', 'diagnostic code is X', 'ICD code X', 'her diagnosis was X', 'his diagnosis was X'. Extract ONLY the condition name or code number (e.g. 'epilepsy', '595'). Do NOT put sentence fragments here. Empty string if not explicitly stated as a diagnosis.",
   "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
-  "billing_code": "MSP encounter code if mentioned — recognise phrases like 'encounter code is X', 'X is the encounter code', 'encounter code X'. Extract just the code number e.g. '00102'. If multiple encounter codes mentioned, return the first one. Empty string if not mentioned.",
+  "billing_code": "First MSP encounter code if mentioned. Extract just the code number e.g. '00102'. Empty string if not mentioned.",
+  "billing_code2": "Second MSP encounter code if multiple mentioned. Extract just the code number. Empty string if not mentioned.",
+  "billing_code3": "Third MSP encounter code if multiple mentioned. Extract just the code number. Empty string if not mentioned.",
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
