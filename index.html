@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.9</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.2</div>
   </div>
 </div>
 
@@ -1683,9 +1683,9 @@ Return ONLY valid JSON with exactly these fields:
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
   "diagnosis_code": "diagnostic/ICD condition if explicitly stated — recognise phrases like 'diagnosis was X', 'X is the diagnosis', 'diagnostic code is X', 'ICD code X', 'her diagnosis was X', 'his diagnosis was X'. Extract ONLY the condition name or code number (e.g. 'epilepsy', '595'). Do NOT put sentence fragments here. Empty string if not explicitly stated as a diagnosis.",
   "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
-  "billing_code": "First MSP encounter code if mentioned. Extract just the code number e.g. '00102'. Empty string if not mentioned.",
-  "billing_code2": "Second MSP encounter code if multiple mentioned. Extract just the code number. Empty string if not mentioned.",
-  "billing_code3": "Third MSP encounter code if multiple mentioned. Extract just the code number. Empty string if not mentioned.",
+  "billing_code": "First encounter code number mentioned after the phrase 'encounter code'. Extract digits only e.g. '10019'. Empty string if not mentioned.",
+  "billing_code2": "Second encounter code number if 'encounter code' is mentioned a second time. Extract digits only. Empty string if not mentioned.",
+  "billing_code3": "Third encounter code number if 'encounter code' is mentioned a third time. Extract digits only. Empty string if not mentioned.",
   "fee": "fee amount as number if mentioned, otherwise empty string",
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
@@ -1709,7 +1709,6 @@ Return ONLY valid JSON with exactly these fields:
     const text = data.content.map(c => c.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
-    console.log('STEP1 AI extracted:', {bc1:parsed.billing_code, bc2:parsed.billing_code2, bc3:parsed.billing_code3});
 
     // Always snap to known patient — dictation only ever creates appointments for existing patients
     const matchedName = matchKnownPatient(parsed.patient_name || '') || titleCaseName(parsed.patient_name || '') || '';
@@ -1752,24 +1751,9 @@ Return ONLY valid JSON with exactly these fields:
         // 3. Infer from reason/notes
         return inferIcdCode(parsed.reason, parsed.notes, note) || parsed.diagnosis_code || '';
       })(),
-      billing_codes: (() => {
-        const allCodes = [...new Set([...(state.settings.billing_codes || []), ...DEFAULT_STATE.settings.billing_codes])];
-        const codes = [];
-        [parsed.billing_code, parsed.billing_code2, parsed.billing_code3].forEach(raw => {
-          if (!raw) return;
-          const trimmed = raw.trim();
-          let matched = allCodes.find(c => c.split('–')[0].trim() === trimmed);
-          if (!matched) matched = fuzzyMatch(trimmed, allCodes);
-          if (!matched) matched = allCodes.find(c => c.startsWith(trimmed));
-          if (matched && !codes.includes(matched)) codes.push(matched);
-        });
-        if (codes.length === 0) {
-          const inferred = inferBillingCode(parsed.reason, parsed.notes, note);
-          if (inferred) codes.push(inferred);
-        }
-        console.log('STEP3 billing_codes array:', codes);
-        return codes;
-      })(),
+      billing_code1: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code||'').trim()) || c.startsWith((parsed.billing_code||'').trim())) || '') || inferBillingCode(parsed.reason, parsed.notes, note) || '',
+      billing_code2: fuzzyMatch(parsed.billing_code2, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code2||'').trim()) || c.startsWith((parsed.billing_code2||'').trim())) || '') || '',
+      billing_code3: fuzzyMatch(parsed.billing_code3, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code3||'').trim()) || c.startsWith((parsed.billing_code3||'').trim())) || '') || '',
       fee: parsed.fee || '',
       phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
       dob: parsed.dob || '',
@@ -2011,6 +1995,9 @@ function openManualEntry() {
     ltc_facility: '',
     reason: '',
     diagnosis_code: '',
+    billing_code1: '',
+    billing_code2: '',
+    billing_code3: '',
     billing_codes: [],
     attachment: '',
     fee: '',
@@ -2058,9 +2045,9 @@ function showPreview() {
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'dob', label: 'Date of birth', type: 'text', full: false },
     { key: 'gender', label: 'Gender', type: 'text', full: false },
-    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 1, full: false },
-    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 2, full: false },
-    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 3, full: false },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes), full: false },
     { key: 'attachment', label: 'Attachment', type: 'text', full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat((state.settings.icd_codes || []).slice().sort((a,b) => { const da = a.includes('–')?a.split('–')[1].trim():a; const db = b.includes('–')?b.split('–')[1].trim():b; return da.localeCompare(db); })), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
@@ -2094,7 +2081,7 @@ function showPreview() {
         if (f.isCustom) pendingEntry.custom[f.customKey] = sel.value;
         else {
           pendingEntry[f.key] = sel.value;
-          if (f.key === 'appointment_type') showPreview(); // re-render for LTC visibility
+          if (f.key === 'appointment_type') showPreview();
         }
       });
       div.appendChild(sel);
@@ -2124,19 +2111,14 @@ function showPreview() {
 async function confirmAppointment() {
   if (!pendingEntry) return;
   // Sync manual edits from preview, collecting billing codes into array
-  const previewCodes = [];
   document.querySelectorAll('#previewGrid .pf-input, #previewGrid .pf-select').forEach(el => {
     const key = el.dataset.key;
     const ck = el.dataset.customKey;
-    if (key === 'billing_code1' || key === 'billing_code2' || key === 'billing_code3') {
-      if (el.value) previewCodes.push(el.value);
-    } else if (ck) {
-      pendingEntry.custom[ck] = el.value;
-    } else if (key) {
-      pendingEntry[key] = el.value;
-    }
+    if (ck) pendingEntry.custom[ck] = el.value;
+    else if (key) pendingEntry[key] = el.value;
   });
-  if (previewCodes.length > 0) pendingEntry.billing_codes = previewCodes;
+  // Collect billing_code1/2/3 into billing_codes array for log storage
+  pendingEntry.billing_codes = [pendingEntry.billing_code1, pendingEntry.billing_code2, pendingEntry.billing_code3].filter(Boolean);
 
   // Update patient record
   const nameKey = pendingEntry.patient_name.toLowerCase().trim();
@@ -2462,9 +2444,9 @@ function openEdit(index) {
     { key: 'gender', label: 'Gender', type: 'text' },
     { key: 'attachment', label: 'Attachment', type: 'text' },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []) },
-    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 1 },
-    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 2 },
-    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 3 },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes) },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes) },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes) },
     { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
     { key: 'notes', label: 'Notes', type: 'textarea', full: true },
   ];
@@ -2478,13 +2460,7 @@ function openEdit(index) {
     const div = document.createElement('div');
     div.className = 'modal-field' + (f.full ? ' full' : '');
     div.innerHTML = `<label>${f.label}</label>`;
-    let val;
-    if (f.isBillingCode) {
-      const codes = Array.isArray(r.billing_codes) ? r.billing_codes : (r.billing_code ? [r.billing_code] : []);
-      val = codes[f.isBillingCode - 1] || '';
-    } else {
-      val = f.isCustom ? (r.custom ? r.custom[f.customKey] : '') : (r[f.key] || '');
-    }
+    const val = f.isCustom ? (r.custom ? r.custom[f.customKey] : '') : (r[f.key] || '');
     if (f.type === 'select') {
       const sel = document.createElement('select');
       sel.dataset.key = f.key;
@@ -2518,16 +2494,13 @@ function openEdit(index) {
 
 async function saveEdit() {
   const r = state.log[editingIndex];
-  const newCodes = [];
   document.querySelectorAll('#editModalGrid input[data-key], #editModalGrid select[data-key], #editModalGrid textarea[data-key]').forEach(el => {
     const key = el.dataset.key;
     const ck = el.dataset.customKey;
-    if (key === 'billing_code1' || key === 'billing_code2' || key === 'billing_code3') {
-      if (el.value) newCodes.push(el.value);
-    } else if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
+    if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
     else if (key) r[key] = el.value;
   });
-  r.billing_codes = newCodes;
+  r.billing_codes = [r.billing_code1, r.billing_code2, r.billing_code3].filter(Boolean);
 
   // Update patient record
   const nameKey = (r.patient_name || '').toLowerCase().trim();
@@ -2724,6 +2697,9 @@ function newAppointmentFromPatient(nameKey) {
     ltc_facility: '',
     reason: '',
     diagnosis_code: '',
+    billing_code1: '',
+    billing_code2: '',
+    billing_code3: '',
     billing_codes: [],
     attachment: '',
     fee: '',
