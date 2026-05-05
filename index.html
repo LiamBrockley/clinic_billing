@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.5</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.7</div>
   </div>
 </div>
 
@@ -1709,6 +1709,18 @@ Return ONLY valid JSON with exactly these fields:
     const text = data.content.map(c => c.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
+    // STEP 1: What did AI extract?
+    console.log('STEP1 AI extracted:', {bc1:parsed.billing_code, bc2:parsed.billing_code2, bc3:parsed.billing_code3});
+    // STEP 2: What does matching produce?
+    const _dbgCodes = [...new Set([...(state.settings.billing_codes||[]),...DEFAULT_STATE.settings.billing_codes])];
+    console.log('STEP2 codes list size:', _dbgCodes.length, 'sample:', _dbgCodes[0]);
+    [parsed.billing_code, parsed.billing_code2, parsed.billing_code3].forEach((raw,i) => {
+      if (!raw) return;
+      const t = raw.trim();
+      const direct = _dbgCodes.find(c => c.split('–')[0].trim() === t);
+      const sw = _dbgCodes.find(c => c.startsWith(t));
+      console.log('STEP2 match for "'+t+'":', direct || sw || 'NO MATCH');
+    });
 
     // Always snap to known patient — dictation only ever creates appointments for existing patients
     const matchedName = matchKnownPatient(parsed.patient_name || '') || titleCaseName(parsed.patient_name || '') || '';
@@ -1757,19 +1769,16 @@ Return ONLY valid JSON with exactly these fields:
         [parsed.billing_code, parsed.billing_code2, parsed.billing_code3].forEach(raw => {
           if (!raw) return;
           const trimmed = raw.trim();
-          // 1. Direct code number match — split on en-dash, compare left side
           let matched = allCodes.find(c => c.split('–')[0].trim() === trimmed);
-          // 2. fuzzyMatch
           if (!matched) matched = fuzzyMatch(trimmed, allCodes);
-          // 3. startsWith
           if (!matched) matched = allCodes.find(c => c.startsWith(trimmed));
           if (matched && !codes.includes(matched)) codes.push(matched);
         });
-        // Infer from reason if nothing explicit
         if (codes.length === 0) {
           const inferred = inferBillingCode(parsed.reason, parsed.notes, note);
           if (inferred) codes.push(inferred);
         }
+        console.log('STEP3 billing_codes array:', codes);
         return codes;
       })(),
       fee: parsed.fee || '',
