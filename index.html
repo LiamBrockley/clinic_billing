@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v7.9</div>
   </div>
 </div>
 
@@ -1709,18 +1709,7 @@ Return ONLY valid JSON with exactly these fields:
     const text = data.content.map(c => c.text || '').join('');
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
-    // STEP 1: What did AI extract?
     console.log('STEP1 AI extracted:', {bc1:parsed.billing_code, bc2:parsed.billing_code2, bc3:parsed.billing_code3});
-    // STEP 2: What does matching produce?
-    const _dbgCodes = [...new Set([...(state.settings.billing_codes||[]),...DEFAULT_STATE.settings.billing_codes])];
-    console.log('STEP2 codes list size:', _dbgCodes.length, 'sample:', _dbgCodes[0]);
-    [parsed.billing_code, parsed.billing_code2, parsed.billing_code3].forEach((raw,i) => {
-      if (!raw) return;
-      const t = raw.trim();
-      const direct = _dbgCodes.find(c => c.split('–')[0].trim() === t);
-      const sw = _dbgCodes.find(c => c.startsWith(t));
-      console.log('STEP2 match for "'+t+'":', direct || sw || 'NO MATCH');
-    });
 
     // Always snap to known patient — dictation only ever creates appointments for existing patients
     const matchedName = matchKnownPatient(parsed.patient_name || '') || titleCaseName(parsed.patient_name || '') || '';
@@ -2069,9 +2058,9 @@ function showPreview() {
     { key: 'phn', label: 'Provincial Health Number', type: 'text', full: false },
     { key: 'dob', label: 'Date of birth', type: 'text', full: false },
     { key: 'gender', label: 'Gender', type: 'text', full: false },
-    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 1, full: false },
-    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 2, full: false },
-    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 3, full: false },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 1, full: false },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 2, full: false },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 3, full: false },
     { key: 'attachment', label: 'Attachment', type: 'text', full: false },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat((state.settings.icd_codes || []).slice().sort((a,b) => { const da = a.includes('–')?a.split('–')[1].trim():a; const db = b.includes('–')?b.split('–')[1].trim():b; return da.localeCompare(db); })), full: false },
     { key: 'notes', label: 'Notes', type: 'text', full: true },
@@ -2473,9 +2462,9 @@ function openEdit(index) {
     { key: 'gender', label: 'Gender', type: 'text' },
     { key: 'attachment', label: 'Attachment', type: 'text' },
     { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []) },
-    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 1 },
-    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 2 },
-    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes), isBillingCode: 3 },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 1 },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 2 },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat([...new Set([...state.settings.billing_codes,...DEFAULT_STATE.settings.billing_codes])]), isBillingCode: 3 },
     { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
     { key: 'notes', label: 'Notes', type: 'textarea', full: true },
   ];
