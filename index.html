@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.3</div>
   </div>
 </div>
 
@@ -2656,7 +2656,6 @@ async function saveNewPatient() {
   const phn    = document.getElementById('np-phn').value.trim();
   const dob    = document.getElementById('np-dob').value.trim();
   const gender = document.getElementById('np-gender').value.trim();
-  const phone  = document.getElementById('np-phone').value.trim();
   const npAttachment = document.getElementById('np-attachment') ? document.getElementById('np-attachment').value.trim() : '';
   if (phn)          p.phn        = phn;
   if (dob)          p.dob        = dob;
