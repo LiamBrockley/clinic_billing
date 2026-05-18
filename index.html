@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.7</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.9</div>
   </div>
 </div>
 
@@ -2353,7 +2353,10 @@ function openEdit(index) {
     { key: 'patient_name', label: 'Patient name', type: 'text' },
     { key: 'date', label: 'Date', type: 'text' },
     { key: 'time', label: 'Time', type: 'text' },
-    { key: 'duration', label: 'Duration', type: 'text' },
+    { key: 'duration', label: 'Duration (mins)', type: 'text' },
+    { key: 'start_time', label: 'Start time', type: 'text' },
+    { key: 'end_time', label: 'End time', type: 'text' },
+    { key: 'd_code', label: 'D code', type: 'select', options: ['', 'D'] },
     { key: 'appointment_type', label: 'Type', type: 'select', options: state.settings.appt_types },
     { key: 'ltc_facility', label: 'LTC facility', type: 'select', options: [''].concat(state.settings.ltc_facilities) },
     { key: 'reason', label: 'Reason', type: 'text' },
@@ -3002,9 +3005,9 @@ Proceed?`;
 async function exportCSV() {
   if (state.log.length === 0) { alert('No appointments to export yet.'); return; }
   const customFields = state.settings.custom_fields || [];
-  const headers = ['Date','Time','Patient name','PHN','DOB','Gender','Phone','Duration','Appointment type','LTC facility','Reason','Diagnosis code','Encounter code','Attachment','Fee','Referred by','Follow-up','Claimed','Claim status','Notes','Total visits'].concat(customFields);
+  const headers = ['Date','Time','Start time','End time','Patient name','PHN','DOB','Gender','Duration','Appointment type','LTC facility','Reason','Diagnosis code','Encounter codes','D code','Attachment','Claim status','Notes','Total visits'].concat(customFields);
   const rows = state.log.map(r => [
-    r.date, r.time, r.start_time, r.end_time, r.patient_name, r.phn, r.dob, r.gender, r.phone,
+    r.date, r.time, r.start_time, r.end_time, r.patient_name, r.phn, r.dob, r.gender,
     r.duration, r.appointment_type, r.ltc_facility, r.reason,
     r.diagnosis_code, (Array.isArray(r.billing_codes) ? r.billing_codes.map(c=>c.split('–')[0].trim()).join(', ') : (r.billing_code||'')), r.d_code||'', r.attachment, r.claim_status, r.notes, r.total_visits || 1
   ].concat(customFields.map(cf => r.custom ? r.custom[cf] : '')));
