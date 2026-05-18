@@ -386,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.3</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.4</div>
   </div>
 </div>
 
@@ -1624,8 +1624,8 @@ Return ONLY valid JSON with exactly these fields:
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
   "date": "appointment date in YYYY-MM-DD format if mentioned (e.g. 'April 16th 2026', 'yesterday', 'last Tuesday') — use today's date (${dateStr}) to resolve relative dates. Empty string if not mentioned.",
   "time": "appointment time in HH:MM 24-hour format if mentioned (e.g. '2pm', '14:00'). Empty string if not mentioned.",
-  "start_time": "start time of appointment in HH:MM 24-hour format if mentioned (e.g. 'started at 9am', 'from 14:00'). Empty string if not mentioned.",
-  "end_time": "end time of appointment in HH:MM 24-hour format if mentioned (e.g. 'ended at 9:15', 'until 2:30pm'). Empty string if not mentioned.",
+  "start_time": "start time in HH:MM 24-hour format if mentioned — recognise formats like '0900 hours', '0900h', '09:00', '9am', 'start time 0900'. Convert to HH:MM e.g. '0900 hours' → '09:00'. Empty string if not mentioned.",
+  "end_time": "end time in HH:MM 24-hour format if mentioned — recognise formats like '1000 hours', '1000h', '10:00', '10am', 'end time 1000'. Convert to HH:MM e.g. '1000 hours' → '10:00'. Empty string if not mentioned.",
   "dob": "patient date of birth if mentioned, in YYYY-MM-DD format. Empty string if not mentioned.",
   "gender": "patient gender if mentioned (e.g. Male, Female, Non-binary). Empty string if not mentioned.",
   "phn": "provincial health number if mentioned anywhere in the note — extract digits only, e.g. if they say 'PHN is 1234567890' or 'health number 1234567890' return '1234567890'. Empty string if not mentioned.",
