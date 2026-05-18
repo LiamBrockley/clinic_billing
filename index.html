@@ -386,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.2</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.3</div>
   </div>
 </div>
 
@@ -1689,9 +1689,9 @@ Return ONLY valid JSON with exactly these fields:
         // 3. Infer from reason/notes
         return inferIcdCode(parsed.reason, parsed.notes, note) || parsed.diagnosis_code || '';
       })(),
-      billing_code1: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code||'').trim()) || c.startsWith((parsed.billing_code||'').trim())) || '') || inferBillingCode(parsed.reason, parsed.notes, note) || '',
-      billing_code2: fuzzyMatch(parsed.billing_code2, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code2||'').trim()) || c.startsWith((parsed.billing_code2||'').trim())) || '') || '',
-      billing_code3: fuzzyMatch(parsed.billing_code3, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code3||'').trim()) || c.startsWith((parsed.billing_code3||'').trim())) || '') || '',
+      billing_code1: fuzzyMatch(parsed.billing_code, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + (parsed.billing_code||'').trim()) || c.startsWith((parsed.billing_code||'').trim())) || '') || (!parsed.billing_code && !parsed.billing_code2 && !parsed.billing_code3 ? inferBillingCode(parsed.reason, parsed.notes, note) : '') || '',
+      billing_code2: parsed.billing_code2 ? (fuzzyMatch(parsed.billing_code2, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + parsed.billing_code2.trim()) || c.startsWith(parsed.billing_code2.trim())) || '') || '') : '',
+      billing_code3: parsed.billing_code3 ? (fuzzyMatch(parsed.billing_code3, state.settings.billing_codes) || (state.settings.billing_codes.find(c => c.includes('– ' + parsed.billing_code3.trim()) || c.startsWith(parsed.billing_code3.trim())) || '') || '') : '',
       fee: parsed.fee || '',
       phn: parsed.phn ? wordsToDigits(parsed.phn).replace(/\D/g, '') : '',
       dob: parsed.dob || '',
@@ -1993,6 +1993,21 @@ function createSearchSelect(options, currentVal, onSelect) {
 
     function renderList(q) {
       list.innerHTML = '';
+      // Always show blank option at top when not searching
+      if (!q) {
+        const blankItem = document.createElement('div');
+        blankItem.className = 'search-select-item' + (!currentVal ? ' selected' : '');
+        blankItem.textContent = '— blank —';
+        blankItem.style.color = 'var(--text-light)';
+        blankItem.addEventListener('mousedown', e => {
+          e.preventDefault();
+          currentVal = '';
+          display.value = '';
+          onSelect('');
+          closeDropdown();
+        });
+        list.appendChild(blankItem);
+      }
       const filtered = options.filter(o => !q || o.toLowerCase().includes(q.toLowerCase()));
       if (filtered.length === 0) {
         const empty = document.createElement('div');
