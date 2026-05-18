@@ -359,7 +359,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.6</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.7</div>
   </div>
 </div>
 
@@ -1219,6 +1219,23 @@ async function migrateSettings() {
   if (changed) await saveState();
 }
 
+async function migrateOldRecords() {
+  let changed = false;
+  state.log.forEach(r => {
+    if (r.start_time === undefined) { r.start_time = ''; changed = true; }
+    if (r.end_time === undefined) { r.end_time = ''; changed = true; }
+    if (r.d_code === undefined) { r.d_code = ''; changed = true; }
+    if (r.billing_code1 === undefined) { r.billing_code1 = ''; changed = true; }
+    if (r.billing_code2 === undefined) { r.billing_code2 = ''; changed = true; }
+    if (r.billing_code3 === undefined) { r.billing_code3 = ''; changed = true; }
+    if (!r.billing_codes) { 
+      r.billing_codes = [r.billing_code1, r.billing_code2, r.billing_code3].filter(Boolean);
+      changed = true; 
+    }
+  });
+  if (changed) await saveState();
+}
+
 async function migrateTimeTo24Hour() {
   let changed = false;
   state.log.forEach(r => {
@@ -1232,6 +1249,7 @@ async function initApp() {
   updateTopbarDate();
   setInterval(updateTopbarDate, 60000);
   await migrateSettings();
+  await migrateOldRecords();
   migrateTimeTo24Hour();
   renderTable();
   renderSettings();
@@ -1580,7 +1598,7 @@ Return ONLY valid JSON with exactly these fields:
   "date": "appointment date in YYYY-MM-DD format if mentioned (e.g. 'April 16th 2026', 'yesterday', 'last Tuesday') — use today's date (${dateStr}) to resolve relative dates. Empty string if not mentioned.",
   "time": "appointment time in HH:MM 24-hour format if mentioned (e.g. '2pm', '14:00'). Empty string if not mentioned.",
   "start_time": "start time of appointment in HH:MM 24-hour format if mentioned (e.g. 'started at 9am', 'from 14:00'). Empty string if not mentioned.",
-  "end_time": "end time of appointment in HH:MM 24-hour format if mentioned (e.g. 'ended at 9:15', 'until 2:30pm'). Empty string if not mentioned." (e.g. '2pm', '14:00', 'this morning at 9'). Empty string if not mentioned.",
+  "end_time": "end time of appointment in HH:MM 24-hour format if mentioned (e.g. 'ended at 9:15', 'until 2:30pm'). Empty string if not mentioned.",
   "dob": "patient date of birth if mentioned, in YYYY-MM-DD format. Empty string if not mentioned.",
   "gender": "patient gender if mentioned (e.g. Male, Female, Non-binary). Empty string if not mentioned.",
   "phn": "provincial health number if mentioned anywhere in the note — extract digits only, e.g. if they say 'PHN is 1234567890' or 'health number 1234567890' return '1234567890'. Empty string if not mentioned.",
@@ -2073,7 +2091,7 @@ function setSubmitLoading(on) {
 //  TABLE RENDERING
 // ════════════════════════════════════════
 function getColumns() {
-  const base = ['Date','Time','Dur (mins)','Patient','Type','Reason','ICD code','Encounter code','Attachment','Claim status','Visit'];
+  const base = ['Date','Start','End','Patient','Type','Reason','ICD code','Encounter codes','D','Attachment','Claim status','Visit'];
   return base.concat(state.settings.custom_fields);
 }
 
@@ -2095,12 +2113,10 @@ function getVisitNumber(entry, logIndex) {
 
 // Maps column label to the field key used for sorting
 const COL_KEYS = {
-  'Start': 'start_time',
-  'End': 'end_time',
-  'D': 'd_code',
+  'Date': 'date', 'Start': 'start_time', 'End': 'end_time',
   'Patient': 'patient_name',
   'Type': 'appointment_type', 'Reason': 'reason',
-  'Encounter code': 'billing_code',
+  'Encounter codes': 'billing_codes',
   'ICD code': 'diagnosis_code',
   'Attachment': 'attachment',
   'Visit': 'total_visits'
