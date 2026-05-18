@@ -340,6 +340,33 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--sage-mid); border-top-color: var(--sage-dark); border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ── SEARCHABLE DROPDOWN ── */
+  .search-select-wrap { position: relative; }
+  .search-select-display {
+    width: 100%; padding: 4px 6px; font-family: inherit; font-size: 13px;
+    color: var(--text); background: var(--cream); border: none; outline: none;
+    cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .search-select-display:focus { color: var(--text); }
+  .search-select-dropdown {
+    position: fixed; background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+    z-index: 300; min-width: 260px; max-width: 380px;
+  }
+  .search-select-input {
+    width: 100%; border: none; border-bottom: 1px solid var(--border-light);
+    padding: 7px 10px; font-family: inherit; font-size: 13px;
+    background: var(--cream); color: var(--text); outline: none;
+  }
+  .search-select-list { max-height: 200px; overflow-y: auto; }
+  .search-select-item {
+    padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--text);
+  }
+  .search-select-item:hover { background: var(--sage-light); }
+  .search-select-item.selected { background: var(--sage-light); font-weight: 500; color: var(--sage-dark); }
+  .search-select-empty { padding: 8px 10px; font-size: 12px; color: var(--text-light); }
+
   /* ── SCROLLBAR ── */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -359,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.0</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.1</div>
   </div>
 </div>
 
@@ -1935,6 +1962,94 @@ function openManualEntry() {
   badge.textContent = '';
 }
 
+function createSearchSelect(options, currentVal, onSelect) {
+  const wrap = document.createElement('div');
+  wrap.className = 'search-select-wrap';
+
+  const display = document.createElement('input');
+  display.type = 'text';
+  display.className = 'search-select-display pf-input';
+  display.value = currentVal;
+  display.placeholder = 'Type to search…';
+  display.readOnly = false;
+  wrap.appendChild(display);
+
+  let dropdown = null;
+
+  function openDropdown() {
+    closeAllDropdowns();
+    dropdown = document.createElement('div');
+    dropdown.className = 'search-select-dropdown';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'search-select-input';
+    searchInput.placeholder = 'Search…';
+    dropdown.appendChild(searchInput);
+
+    const list = document.createElement('div');
+    list.className = 'search-select-list';
+    dropdown.appendChild(list);
+
+    function renderList(q) {
+      list.innerHTML = '';
+      const filtered = options.filter(o => !q || o.toLowerCase().includes(q.toLowerCase()));
+      if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'search-select-empty';
+        empty.textContent = 'No matches';
+        list.appendChild(empty);
+        return;
+      }
+      filtered.forEach(o => {
+        const item = document.createElement('div');
+        item.className = 'search-select-item' + (o === currentVal ? ' selected' : '');
+        item.textContent = o;
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          currentVal = o;
+          display.value = o;
+          onSelect(o);
+          closeDropdown();
+        });
+        list.appendChild(item);
+      });
+    }
+
+    searchInput.addEventListener('input', () => renderList(searchInput.value));
+    renderList('');
+
+    // Position dropdown
+    const rect = display.getBoundingClientRect();
+    dropdown.style.top = (rect.bottom + 2) + 'px';
+    dropdown.style.left = rect.left + 'px';
+    document.body.appendChild(dropdown);
+    searchInput.focus();
+  }
+
+  function closeDropdown() {
+    if (dropdown) { dropdown.remove(); dropdown = null; }
+  }
+
+  display.addEventListener('click', () => {
+    if (dropdown) closeDropdown(); else openDropdown();
+  });
+  display.addEventListener('focus', () => { if (!dropdown) openDropdown(); });
+
+  wrap.closeDropdown = closeDropdown;
+  return wrap;
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.search-select-dropdown').forEach(d => d.remove());
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-select-wrap') && !e.target.closest('.search-select-dropdown')) {
+    closeAllDropdowns();
+  }
+});
+
 function showPreview() {
   document.getElementById('followupArea').style.display = 'none';
   document.getElementById('previewArea').style.display = 'block';
@@ -1983,24 +2098,32 @@ function showPreview() {
     div.innerHTML = `<div class="pf-label">${f.label}</div>`;
     if (f.type === 'select') {
       const val = f.isCustom ? (pendingEntry.custom[f.customKey] || '') : (pendingEntry[f.key] || '');
-      const sel = document.createElement('select');
-      sel.className = 'pf-select';
-      sel.dataset.key = f.key;
-      if (f.isCustom) sel.dataset.customKey = f.customKey;
-      f.options.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o; opt.textContent = o;
-        if (o === val) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      sel.addEventListener('change', () => {
-        if (f.isCustom) pendingEntry.custom[f.customKey] = sel.value;
-        else {
-          pendingEntry[f.key] = sel.value;
-          if (f.key === 'appointment_type') showPreview();
-        }
-      });
-      div.appendChild(sel);
+      const isSearchable = f.options && f.options.length > 10;
+      if (isSearchable) {
+        const searchWrap = createSearchSelect(f.options.filter(o => o !== ''), val, newVal => {
+          if (f.isCustom) pendingEntry.custom[f.customKey] = newVal;
+          else { pendingEntry[f.key] = newVal; if (f.key === 'appointment_type') showPreview(); }
+        });
+        searchWrap.querySelector('.search-select-display').dataset.key = f.key;
+        if (f.isCustom) searchWrap.querySelector('.search-select-display').dataset.customKey = f.customKey;
+        div.appendChild(searchWrap);
+      } else {
+        const sel = document.createElement('select');
+        sel.className = 'pf-select';
+        sel.dataset.key = f.key;
+        if (f.isCustom) sel.dataset.customKey = f.customKey;
+        f.options.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o; opt.textContent = o;
+          if (o === val) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => {
+          if (f.isCustom) pendingEntry.custom[f.customKey] = sel.value;
+          else { pendingEntry[f.key] = sel.value; if (f.key === 'appointment_type') showPreview(); }
+        });
+        div.appendChild(sel);
+      }
     } else {
       const val = f.isCustom ? (pendingEntry.custom[f.customKey] || '') : (pendingEntry[f.key] || '');
       const inp = document.createElement('input');
@@ -2381,16 +2504,30 @@ function openEdit(index) {
     div.innerHTML = `<label>${f.label}</label>`;
     const val = f.isCustom ? (r.custom ? r.custom[f.customKey] : '') : (r[f.key] || '');
     if (f.type === 'select') {
-      const sel = document.createElement('select');
-      sel.dataset.key = f.key;
-      if (f.isCustom) sel.dataset.customKey = f.customKey;
-      f.options.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o; opt.textContent = o || '—';
-        if (o === val) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      div.appendChild(sel);
+      const isSearchable = f.options && f.options.length > 10;
+      if (isSearchable) {
+        const searchWrap = createSearchSelect(f.options.filter(o => o !== ''), val, newVal => {
+          // Store directly on r for edit modal
+          if (f.isBillingCode) {
+            if (!r.billing_codes) r.billing_codes = [];
+          }
+        });
+        const inp = searchWrap.querySelector('.search-select-display');
+        inp.dataset.key = f.key;
+        if (f.isCustom) inp.dataset.customKey = f.customKey;
+        div.appendChild(searchWrap);
+      } else {
+        const sel = document.createElement('select');
+        sel.dataset.key = f.key;
+        if (f.isCustom) sel.dataset.customKey = f.customKey;
+        f.options.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o; opt.textContent = o || '—';
+          if (o === val) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        div.appendChild(sel);
+      }
     } else if (f.type === 'textarea') {
       const ta = document.createElement('textarea');
       ta.dataset.key = f.key; ta.value = val || ''; ta.rows = 3;
@@ -2413,7 +2550,7 @@ function openEdit(index) {
 
 async function saveEdit() {
   const r = state.log[editingIndex];
-  document.querySelectorAll('#editModalGrid input[data-key], #editModalGrid select[data-key], #editModalGrid textarea[data-key]').forEach(el => {
+  document.querySelectorAll('#editModalGrid input[data-key], #editModalGrid select[data-key], #editModalGrid textarea[data-key], #editModalGrid .search-select-display[data-key]').forEach(el => {
     const key = el.dataset.key;
     const ck = el.dataset.customKey;
     if (ck) { if (!r.custom) r.custom = {}; r.custom[ck] = el.value; }
