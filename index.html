@@ -386,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.1</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.2</div>
   </div>
 </div>
 
@@ -2031,10 +2031,10 @@ function createSearchSelect(options, currentVal, onSelect) {
     if (dropdown) { dropdown.remove(); dropdown = null; }
   }
 
-  display.addEventListener('click', () => {
+  display.addEventListener('click', e => {
+    e.stopPropagation();
     if (dropdown) closeDropdown(); else openDropdown();
   });
-  display.addEventListener('focus', () => { if (!dropdown) openDropdown(); });
 
   wrap.closeDropdown = closeDropdown;
   return wrap;
@@ -2044,7 +2044,7 @@ function closeAllDropdowns() {
   document.querySelectorAll('.search-select-dropdown').forEach(d => d.remove());
 }
 
-document.addEventListener('click', e => {
+document.addEventListener('mousedown', e => {
   if (!e.target.closest('.search-select-wrap') && !e.target.closest('.search-select-dropdown')) {
     closeAllDropdowns();
   }
