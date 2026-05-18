@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clinic Billing Assistant</title>
+<title>Long-term Care Billing</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -352,14 +352,14 @@
 <div id="lockScreen">
   <div class="lock-card">
     <div>
-      <div class="lock-title">Clinic Billing</div>
+      <div class="lock-title">Long-term Care Billing</div>
       <div class="lock-subtitle">Enter your password to continue</div>
     </div>
     <div id="lockMessage" class="lock-message"></div>
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.5</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v8.6</div>
   </div>
 </div>
 
@@ -367,7 +367,7 @@
 <div id="app">
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-logo">Clinic Billing</div>
+      <div class="topbar-logo">Long-term Care Billing</div>
       <div class="topbar-date" id="topbarDate"></div>
     </div>
     <div class="topbar-right">
@@ -629,16 +629,15 @@ const DEFAULT_STATE = {
       '00114 – LTC Facility Visit',
       '13334 – LTC First Visit Of Day Bonus',
       '13115 – LTC Admission',
-      '14070 – CLFP Portal Code',
-      '14072 – Long Term Care Portal',
+        '14072 – Long Term Care Portal',
       '13005 – Advice About Patient In Community Care',
       '14076 – FP Telephone Management',
       '14067 – FP Brief Conference With ACP And/Or Physician',
       '14077 – FP Conference With ACP And/Or Physician',
+    '14078 – Text To Family Or Patient',
       '13121 – Family Conference',
       '14019 – Consult With NP',
-      '14029 – ACP Visit',
-      '14050 – Chronic Care Bonus Diabetes',
+        '14050 – Chronic Care Bonus Diabetes',
       '14051 – Chronic Care Bonus Heart Failure',
       '14052 – Chronic Care Bonus Hypertension',
       '14053 – Chronic Care Bonus COPD',
@@ -1579,7 +1578,9 @@ Return ONLY valid JSON with exactly these fields:
   "referred_by": "referring doctor if mentioned, otherwise empty string",
   "follow_up": "follow-up timeframe if mentioned, otherwise empty string",
   "date": "appointment date in YYYY-MM-DD format if mentioned (e.g. 'April 16th 2026', 'yesterday', 'last Tuesday') — use today's date (${dateStr}) to resolve relative dates. Empty string if not mentioned.",
-  "time": "appointment time in HH:MM 24-hour format if mentioned (e.g. '2pm', '14:00', 'this morning at 9'). Empty string if not mentioned.",
+  "time": "appointment time in HH:MM 24-hour format if mentioned (e.g. '2pm', '14:00'). Empty string if not mentioned.",
+  "start_time": "start time of appointment in HH:MM 24-hour format if mentioned (e.g. 'started at 9am', 'from 14:00'). Empty string if not mentioned.",
+  "end_time": "end time of appointment in HH:MM 24-hour format if mentioned (e.g. 'ended at 9:15', 'until 2:30pm'). Empty string if not mentioned." (e.g. '2pm', '14:00', 'this morning at 9'). Empty string if not mentioned.",
   "dob": "patient date of birth if mentioned, in YYYY-MM-DD format. Empty string if not mentioned.",
   "gender": "patient gender if mentioned (e.g. Male, Female, Non-binary). Empty string if not mentioned.",
   "phn": "provincial health number if mentioned anywhere in the note — extract digits only, e.g. if they say 'PHN is 1234567890' or 'health number 1234567890' return '1234567890'. Empty string if not mentioned.",
@@ -1606,6 +1607,9 @@ Return ONLY valid JSON with exactly these fields:
       patient_name: matchedName,
       date: parsed.date || dateStr,
       time: parsed.time || timeStr,
+      start_time: parsed.start_time || '',
+      end_time: parsed.end_time || '',
+      d_code: '',
       duration: parseDurationToMinutes(parsed.duration),
       appointment_type: fuzzyMatch(parsed.appointment_type, state.settings.appt_types) || parsed.appointment_type || '',
       ltc_facility: (() => {
@@ -1888,6 +1892,9 @@ function openManualEntry() {
     billing_code2: '',
     billing_code3: '',
     billing_codes: [],
+    start_time: '',
+    end_time: '',
+    d_code: '',
     attachment: '',
     fee: '',
     phn: '',
@@ -1928,6 +1935,9 @@ function showPreview() {
     { key: 'date', label: 'Date', type: 'text', full: false },
     { key: 'time', label: 'Time', type: 'text', full: false },
     { key: 'duration', label: 'Duration (mins)', type: 'text', full: false },
+    { key: 'start_time', label: 'Start time', type: 'text', full: false },
+    { key: 'end_time', label: 'End time', type: 'text', full: false },
+    { key: 'd_code', label: 'D code', type: 'select', options: ['', 'D'], full: false },
     { key: 'appointment_type', label: 'Appointment type', type: 'select', options: state.settings.appt_types, full: false },
     { key: 'ltc_facility', label: 'LTC facility', type: 'select', options: state.settings.ltc_facilities, full: false, hidden: !ltcVisible },
     { key: 'reason', label: 'Reason for visit', type: 'text', full: false },
@@ -2085,7 +2095,9 @@ function getVisitNumber(entry, logIndex) {
 
 // Maps column label to the field key used for sorting
 const COL_KEYS = {
-  'Dur (mins)': 'duration',
+  'Start': 'start_time',
+  'End': 'end_time',
+  'D': 'd_code',
   'Patient': 'patient_name',
   'Type': 'appointment_type', 'Reason': 'reason',
   'Encounter code': 'billing_code',
@@ -2288,13 +2300,14 @@ function renderTable() {
     const claimStatus = r.claim_status || 'Not submitted';
     return `<tr onclick="openEdit(${i})">
       <td>${esc(r.date)}</td>
-      <td class="td-muted">${esc(r.time)}</td>
-      <td>${esc(r.duration)}</td>
+      <td>${esc(r.start_time)}</td>
+      <td>${esc(r.end_time)}</td>
       <td class="td-name">${esc(r.patient_name)}</td>
       <td>${esc(r.appointment_type)}${r.ltc_facility ? '<br><span style="font-size:10px;color:var(--text-light)">'+esc(r.ltc_facility)+'</span>' : ''}</td>
       <td>${esc(r.reason)}</td>
       <td class="td-muted">${esc(r.diagnosis_code)}</td>
       <td>${esc(Array.isArray(r.billing_codes) ? r.billing_codes.map(c=>c.split('–')[0].trim()).join(', ') : (r.billing_code||''))}</td>
+      <td style="text-align:center">${r.d_code === 'D' ? '<span style="font-weight:600;color:var(--sage-dark)">D</span>' : dash()}</td>
       <td>${esc(r.attachment)}</td>
       <td style="text-align:center;cursor:pointer;padding:7px 16px" onclick="event.stopPropagation();openStatusMenu(event,${i})" title="Click to change status"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${claimStatus==='Accepted'?'#27ae60':claimStatus==='Rejected'?'#e74c3c':claimStatus==='Pending'?'#e67e22':'#bdc3c7'}"></span></td>
       <td style="text-align:center"><span class="visits-pill">${getVisitNumber(r, i)}</span></td>
@@ -2589,6 +2602,9 @@ function newAppointmentFromPatient(nameKey) {
     billing_code2: '',
     billing_code3: '',
     billing_codes: [],
+    start_time: '',
+    end_time: '',
+    d_code: '',
     attachment: '',
     fee: '',
     phn:    p.phn    || '',
@@ -2972,9 +2988,9 @@ async function exportCSV() {
   const customFields = state.settings.custom_fields || [];
   const headers = ['Date','Time','Patient name','PHN','DOB','Gender','Phone','Duration','Appointment type','LTC facility','Reason','Diagnosis code','Encounter code','Attachment','Fee','Referred by','Follow-up','Claimed','Claim status','Notes','Total visits'].concat(customFields);
   const rows = state.log.map(r => [
-    r.date, r.time, r.patient_name, r.phn, r.dob, r.gender, r.phone,
+    r.date, r.time, r.start_time, r.end_time, r.patient_name, r.phn, r.dob, r.gender, r.phone,
     r.duration, r.appointment_type, r.ltc_facility, r.reason,
-    r.diagnosis_code, (Array.isArray(r.billing_codes) ? r.billing_codes.map(c=>c.split('–')[0].trim()).join(', ') : (r.billing_code||'')), r.attachment, r.claim_status, r.notes, r.total_visits || 1
+    r.diagnosis_code, (Array.isArray(r.billing_codes) ? r.billing_codes.map(c=>c.split('–')[0].trim()).join(', ') : (r.billing_code||'')), r.d_code||'', r.attachment, r.claim_status, r.notes, r.total_visits || 1
   ].concat(customFields.map(cf => r.custom ? r.custom[cf] : '')));
 
   const csv = [headers, ...rows].map(row => row.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
