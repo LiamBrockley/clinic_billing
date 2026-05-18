@@ -386,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.4</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.5</div>
   </div>
 </div>
 
@@ -1733,7 +1733,7 @@ Return ONLY valid JSON with exactly these fields:
 
     // If a past date was mentioned but no time, ask for the time
     const pastDateGiven = !!(parsed.date && parsed.date !== dateStr);
-    const timeGiven = !!(parsed.time);
+    const timeGiven = !!(parsed.time || parsed.start_time || parsed.end_time);
     if (pastDateGiven && !timeGiven) {
       missing.unshift('time');
     }
