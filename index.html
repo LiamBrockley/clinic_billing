@@ -386,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.5</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v9.9</div>
   </div>
 </div>
 
@@ -2421,8 +2421,8 @@ function renderTable() {
 
   // Sort
   const chronSort = (a, b, dir) => {
-    const da = new Date((a.r.date || '') + 'T' + (a.r.time || '00:00'));
-    const db = new Date((b.r.date || '') + 'T' + (b.r.time || '00:00'));
+    const da = new Date((a.r.date || '') + 'T' + (a.r.start_time || '00:00'));
+    const db = new Date((b.r.date || '') + 'T' + (b.r.start_time || '00:00'));
     return (da - db) * dir;
   };
   if (sortCol === 'chron') {
@@ -2500,10 +2500,10 @@ function openEdit(index) {
     { key: 'dob', label: 'Date of birth', type: 'text' },
     { key: 'gender', label: 'Gender', type: 'text' },
     { key: 'attachment', label: 'Attachment', type: 'text' },
-    { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat(state.settings.icd_codes || []) },
-    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat(state.settings.billing_codes) },
-    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat(state.settings.billing_codes) },
-    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat(state.settings.billing_codes) },
+    { key: 'diagnosis_code', label: 'ICD code', type: 'select', options: [''].concat([...new Set([...(state.settings.icd_codes||[]),...DEFAULT_STATE.settings.icd_codes])]) },
+    { key: 'billing_code1', label: 'Encounter code 1', type: 'select', options: [''].concat([...new Set([...(state.settings.billing_codes||[]),...DEFAULT_STATE.settings.billing_codes])]) },
+    { key: 'billing_code2', label: 'Encounter code 2', type: 'select', options: [''].concat([...new Set([...(state.settings.billing_codes||[]),...DEFAULT_STATE.settings.billing_codes])]) },
+    { key: 'billing_code3', label: 'Encounter code 3', type: 'select', options: [''].concat([...new Set([...(state.settings.billing_codes||[]),...DEFAULT_STATE.settings.billing_codes])]) },
     { key: 'claim_status', label: 'Claim status', type: 'select', options: ['Not submitted','Pending','Accepted','Rejected'] },
     { key: 'notes', label: 'Notes', type: 'textarea', full: true },
   ];
@@ -2522,10 +2522,8 @@ function openEdit(index) {
       const isSearchable = f.options && f.options.length > 10;
       if (isSearchable) {
         const searchWrap = createSearchSelect(f.options.filter(o => o !== ''), val, newVal => {
-          // Store directly on r for edit modal
-          if (f.isBillingCode) {
-            if (!r.billing_codes) r.billing_codes = [];
-          }
+          const inp = searchWrap.querySelector('.search-select-display');
+          if (inp) inp.value = newVal;
         });
         const inp = searchWrap.querySelector('.search-select-display');
         inp.dataset.key = f.key;
@@ -2534,6 +2532,7 @@ function openEdit(index) {
       } else {
         const sel = document.createElement('select');
         sel.dataset.key = f.key;
+        sel.style.cssText = 'width:100%;padding:4px 6px;font-family:inherit;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--cream);color:var(--text)';
         if (f.isCustom) sel.dataset.customKey = f.customKey;
         f.options.forEach(o => {
           const opt = document.createElement('option');
