@@ -386,7 +386,7 @@
     <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password" />
     <div id="lockError" class="lock-error"></div>
     <button class="btn-primary" onclick="attemptLogin()">Unlock</button>
-    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v10.0</div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:-0.5rem">α v10.1</div>
   </div>
 </div>
 
@@ -1614,7 +1614,7 @@ Return ONLY valid JSON with exactly these fields:
   "appointment_type": "one of: ${state.settings.appt_types.join(', ')}",
   "ltc_facility": "name of LTC facility if mentioned, otherwise empty string",
   "reason": "chief complaint — extract ONLY the medical condition/symptom in 1-5 words clinical shorthand, e.g. 'foot fungus', 'chest pain', 'hypertension follow-up'. Strip all narrative phrasing.",
-  "diagnosis_code": "diagnostic/ICD condition if explicitly stated — recognise phrases like 'diagnosis was X', 'X is the diagnosis', 'diagnostic code is X', 'ICD code X', 'her diagnosis was X', 'his diagnosis was X'. Extract ONLY the condition name or code number (e.g. 'epilepsy', '595'). Do NOT put sentence fragments here. Empty string if not explicitly stated as a diagnosis.",
+  "diagnosis_code": "diagnostic condition or code ONLY if explicitly stated as a diagnosis — recognise phrases like 'diagnosis was X', 'X is the diagnosis', 'ICD code X', 'her diagnosis was X'. Extract ONLY what was literally spoken (e.g. 'dementia', '595'). NEVER look up or guess a code number from a condition name — if she says 'dementia' return 'dementia', not '290'. Do NOT put sentence fragments here. Empty string if not explicitly stated as a diagnosis.",
   "attachment": "attachment code or value if mentioned after phrases like 'attachment is' or 'attachment code'. Verbatim. Empty string if not mentioned.",
   "billing_code": "First encounter code number mentioned after the phrase 'encounter code'. Extract digits only e.g. '10019'. Empty string if not mentioned.",
   "billing_code2": "Second encounter code number if 'encounter code' is mentioned a second time. Extract digits only. Empty string if not mentioned.",
